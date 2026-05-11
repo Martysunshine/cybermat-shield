@@ -1,0 +1,23 @@
+{
+  "name": "vulnerable-next-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Intentionally vulnerable Next.js app for scanner testing. All secrets are FAKE test values.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "echo 'Scanner test target — no build required'",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "@prisma/client": "^5.0.0",
+    "@supabase/supabase-js": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "typescript": "^5.0.0"
+  }
+}

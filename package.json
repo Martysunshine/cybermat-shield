@@ -1,0 +1,21 @@
+{
+  "name": "cybermat-shield",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CyberMat Shield — Local-first Application Security Scanner",
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "clean": "turbo run clean",
+    "scan:example": "node packages/cli/dist/index.js scan examples/vulnerable-next-app"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.0"
+  },
+  "packageManager": "pnpm@11.1.0",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
