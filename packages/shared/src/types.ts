@@ -33,13 +33,64 @@ export interface Finding {
   layer?: ScannerLayer;
 }
 
+export type FileKind = 'client' | 'server' | 'shared' | 'config' | 'public' | 'test' | 'unknown';
+
+export interface FileClassification {
+  file: string;
+  kind: FileKind;
+  confidence: 'high' | 'medium' | 'low';
+  reasons: string[];
+}
+
+export interface DangerousCall {
+  name: string;
+  file: string;
+  line: number;
+  column?: number;
+  sinkType: 'xss' | 'sql' | 'command' | 'ssrf' | 'redirect' | 'filesystem' | 'crypto' | 'ai-output' | 'unknown';
+  argumentPreview?: string;
+}
+
+export interface UserInputSource {
+  name: string;
+  file: string;
+  line: number;
+  sourceType: 'request-body' | 'request-query' | 'request-params' | 'url-search-params' | 'browser-location' | 'storage' | 'cookie' | 'post-message' | 'file-upload' | 'ai-output' | 'webhook' | 'unknown';
+}
+
+export interface ImportEdge {
+  from: string;
+  to: string;
+  importType: 'static' | 'dynamic' | 'unknown';
+}
+
+export interface ImportGraph {
+  nodes: string[];
+  edges: ImportEdge[];
+  serverClientLeaks: string[];
+  clientServerLeaks: string[];
+}
+
+export interface ParsedFile {
+  file: string;
+  astAvailable: boolean;
+  imports: string[];
+  exports: string[];
+  functions: string[];
+  dangerousCalls: DangerousCall[];
+  userInputSources: UserInputSource[];
+}
+
 export interface RouteInfo {
-  path: string;
-  method?: string;
-  file?: string;
-  line?: number;
-  isDynamic: boolean;
-  isProtected?: boolean;
+  route: string;
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'ANY';
+  file: string;
+  framework: 'nextjs' | 'express' | 'react-router' | 'unknown';
+  isApi: boolean;
+  isPage: boolean;
+  requiresAuth?: boolean;
+  hasRoleCheck?: boolean;
+  acceptsUserInput?: boolean;
   riskTags: string[];
 }
 
@@ -49,6 +100,7 @@ export interface ScannedFile {
   extension: string;
   sizeBytes: number;
   content: string;
+  sha256?: string;
 }
 
 export interface DetectedStack {
@@ -76,6 +128,9 @@ export interface RuleContext {
   detectedStack: DetectedStack;
   config: ScannerConfig;
   routes?: RouteInfo[];
+  fileClassifications?: FileClassification[];
+  importGraph?: ImportGraph;
+  parsedFiles?: ParsedFile[];
 }
 
 /** Extended context passed to ScannerEngine.run — includes layer and optional runtime target */
@@ -161,12 +216,14 @@ export interface ScanReport {
   filesIgnored: number;
   detectedStack: DetectedStack;
   routes?: RouteInfo[];
+  fileClassifications?: FileClassification[];
   findings: Finding[];
   findingsByLayer: Record<ScannerLayer, Finding[]>;
   riskScore: number;
   summary: ScanSummary;
   owaspCoverage: string[];
   topRecommendations: string[];
+  topRiskyFiles?: string[];
 }
 
 export interface ScanOptions {

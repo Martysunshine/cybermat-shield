@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ScanReport, Finding, Severity } from '@cybermat/shared';
+import type { ScanReport, Finding, Severity, RouteInfo } from '@cybermat/shared';
 
 const SEVERITY_ORDER: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 
@@ -36,7 +36,6 @@ function scoreLabel(score: number): string {
 }
 
 function evidenceText(f: Finding): string {
-  // Priority: redacted snippet > plain snippet > reason
   return f.evidence.redactedSnippet ?? f.evidence.snippet ?? f.evidence.reason;
 }
 
@@ -94,6 +93,75 @@ function renderFindingCards(findings: Finding[], severity: Severity): string {
   `;
 }
 
+function renderRoutesTable(routes: RouteInfo[]): string {
+  if (routes.length === 0) return '';
+
+  const apiRoutes = routes.filter(r => r.isApi);
+  if (apiRoutes.length === 0) return '';
+
+  const rows = apiRoutes.map(r => {
+    const riskHtml = r.riskTags.length > 0
+      ? r.riskTags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join(' ')
+      : '<span style="color:var(--muted)">—</span>';
+    const authBadge = r.requiresAuth
+      ? `<span class="auth-badge auth-yes">auth</span>`
+      : r.isApi ? `<span class="auth-badge auth-no">no auth</span>` : '';
+    const methodColor = r.method === 'DELETE' || r.method === 'PUT' ? '#f97316' :
+      r.method === 'POST' || r.method === 'PATCH' ? '#eab308' : '#94a3b8';
+
+    return `
+      <tr>
+        <td><code style="color:${methodColor}">${escapeHtml(r.method ?? 'ANY')}</code></td>
+        <td><code class="route-path">${escapeHtml(r.route)}</code></td>
+        <td>${authBadge}</td>
+        <td class="risk-tags">${riskHtml}</td>
+        <td style="color:var(--muted);font-size:0.75rem">${escapeHtml(r.file)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="section">
+      <div class="section-title">API Routes Discovered (${apiRoutes.length})</div>
+      <table class="routes-table">
+        <thead>
+          <tr>
+            <th>Method</th><th>Route</th><th>Auth</th><th>Risk Tags</th><th>File</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderTopRiskyFiles(topFiles: string[], findings: Finding[]): string {
+  if (topFiles.length === 0) return '';
+
+  const items = topFiles.map(file => {
+    const fileFindings = findings.filter(f => f.file === file);
+    const critCount = fileFindings.filter(f => f.severity === 'critical').length;
+    const highCount = fileFindings.filter(f => f.severity === 'high').length;
+    const badges = [
+      critCount > 0 ? `<span class="severity-badge" style="background:#ef444420;color:#ef4444;border:1px solid #ef444440">${critCount} crit</span>` : '',
+      highCount > 0 ? `<span class="severity-badge" style="background:#f9731620;color:#f97316;border:1px solid #f9731640">${highCount} high</span>` : '',
+    ].filter(Boolean).join(' ');
+    return `
+      <li class="risky-file-item">
+        <code class="risky-file-path">${escapeHtml(file)}</code>
+        <span class="risky-badges">${badges}</span>
+      </li>
+    `;
+  }).join('');
+
+  return `
+    <div class="section">
+      <div class="section-title">Top Risky Files</div>
+      <ul class="risky-file-list">${items}</ul>
+    </div>
+  `;
+}
+
 export function generateHtml(report: ScanReport): string {
   const { summary, riskScore, detectedStack, findings, scannedPath, timestamp, filesScanned } = report;
 
@@ -112,6 +180,9 @@ export function generateHtml(report: ScanReport): string {
   const owaspRows = report.owaspCoverage.map(o =>
     `<li>${escapeHtml(o)}</li>`
   ).join('');
+
+  const routesHtml = renderRoutesTable(report.routes ?? []);
+  const topRiskyFilesHtml = renderTopRiskyFiles(report.topRiskyFiles ?? [], findings);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -144,10 +215,23 @@ export function generateHtml(report: ScanReport): string {
     .summary-count { font-size: 2rem; font-weight: 700; }
     .summary-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
     .section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; }
-    .section-title { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; }
+    .section-title { font-size: 0.75rem; font-weight: 600; margin-bottom: 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
     .stack-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
     .stack-tag { background: #1e3a5f; color: #93c5fd; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.8rem; border: 1px solid #1d4ed840; }
     .ai-tag { background: #1c1c3a; color: #a78bfa; border-color: #7c3aed40; }
+    .routes-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .routes-table th { text-align: left; padding: 0.5rem 0.75rem; color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+    .routes-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1e293b; vertical-align: middle; }
+    .routes-table tr:hover td { background: #263348; }
+    .route-path { color: #60a5fa; }
+    .risk-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+    .auth-badge { padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+    .auth-yes { background: #14532d40; color: #86efac; border: 1px solid #16a34a30; }
+    .auth-no { background: #7f1d1d40; color: #fca5a5; border: 1px solid #dc262630; }
+    .risky-file-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+    .risky-file-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.5rem 0.75rem; background: var(--surface2); border-radius: 6px; }
+    .risky-file-path { color: #60a5fa; font-size: 0.85rem; }
+    .risky-badges { display: flex; gap: 0.4rem; flex-shrink: 0; }
     .severity-group { margin-bottom: 2rem; }
     .severity-heading { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
     .severity-heading .count { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
@@ -198,6 +282,7 @@ export function generateHtml(report: ScanReport): string {
       <span class="meta-item">📁 ${escapeHtml(scannedPath)}</span>
       <span class="meta-item">📄 ${filesScanned} files scanned</span>
       <span class="meta-item">🕐 ${new Date(timestamp).toLocaleString()}</span>
+      ${(report.routes?.length ?? 0) > 0 ? `<span class="meta-item">🔗 ${report.routes!.filter(r => r.isApi).length} API routes</span>` : ''}
     </div>
 
     <div class="summary-grid">
@@ -214,6 +299,10 @@ export function generateHtml(report: ScanReport): string {
       <div class="section-title">Detected Stack</div>
       <div class="stack-tags">${stackItems}</div>
     </div>` : ''}
+
+    ${routesHtml}
+
+    ${topRiskyFilesHtml}
 
     ${owaspRows ? `
     <div class="section">

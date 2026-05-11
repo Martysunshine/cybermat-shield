@@ -4,14 +4,14 @@ import { makeFindingId, truncate } from '../utils';
 export const configRule: Rule = {
   id: 'config',
   name: 'Configuration & Misconfiguration',
-  description: 'Detects insecure CORS, missing security headers, and exposed config files',
+  description: 'Detects insecure CORS, missing security headers, exposed config files, and framework misconfigurations',
   category: 'Configuration',
   owasp: ['A02 Security Misconfiguration'],
   severity: 'medium',
   run: async (context: RuleContext): Promise<Finding[]> => {
     const findings: Finding[] = [];
 
-    // Check for exposed .env files
+    // ── Exposed .env files ──────────────────────────────────────────────────
     const envFiles = context.files.filter(f => {
       const basename = f.relativePath.split('/').pop() ?? '';
       return basename === '.env' || basename === '.env.production' || basename === '.env.staging';
@@ -38,7 +38,7 @@ export const configRule: Rule = {
       }
     }
 
-    // CORS misconfigurations in source files
+    // ── CORS misconfigurations ─────────────────────────────────────────────
     for (const file of context.files) {
       if (!['.ts', '.js', '.tsx', '.jsx'].includes(file.extension)) continue;
       const lines = file.content.split('\n');
@@ -77,7 +77,7 @@ export const configRule: Rule = {
       }
     }
 
-    // next.config.js security checks
+    // ── next.config.js security checks ────────────────────────────────────
     const nextConfig = context.files.find(f =>
       f.relativePath === 'next.config.js' ||
       f.relativePath === 'next.config.ts' ||
@@ -122,6 +122,65 @@ export const configRule: Rule = {
           impact: 'Source maps expose original application code to anyone viewing the site, aiding reverse engineering.',
           recommendation: 'Remove productionBrowserSourceMaps:true from next.config.js unless intentional for error tracking.',
           tags: ['nextjs', 'source-maps', 'config'],
+        });
+      }
+    }
+
+    // ── Firebase permissive security rules ───────────────────────────────
+    const firebaseRulesFiles = context.files.filter(f =>
+      f.relativePath.includes('firestore.rules') ||
+      f.relativePath.includes('database.rules.json') ||
+      f.relativePath.includes('storage.rules') ||
+      f.relativePath.endsWith('.rules')
+    );
+    for (const file of firebaseRulesFiles) {
+      if (/allow\s+(?:read|write|read,\s*write|write,\s*read)\s*:\s*if\s+true/.test(file.content)) {
+        findings.push({
+          id: makeFindingId('config.firebase-permissive-rules', file.relativePath, 0),
+          ruleId: 'config.firebase-permissive-rules',
+          title: 'Firebase Security Rules Allow Public Access',
+          severity: 'critical',
+          confidence: 'high',
+          owasp: ['A01 Broken Access Control', 'A02 Security Misconfiguration'],
+          cwe: ['CWE-284'],
+          category: 'Configuration',
+          file: file.relativePath,
+          evidence: {
+            reason: 'Firebase rules contain "allow read/write: if true" — database is publicly accessible to anyone',
+          },
+          impact: 'Anyone on the internet can read, write, or delete data in your Firebase database.',
+          recommendation: 'Require authentication in Firebase rules: allow read: if request.auth != null. Apply field-level validation.',
+          tags: ['firebase', 'security-rules', 'critical'],
+        });
+      }
+    }
+
+    // ── Supabase missing RLS ──────────────────────────────────────────────
+    if (context.detectedStack.databases.includes('Supabase')) {
+      const hasMigrations = context.files.some(f =>
+        f.relativePath.includes('/migrations/') || f.relativePath.endsWith('.sql')
+      );
+      const hasPolicies = context.files.some(f =>
+        f.content.toLowerCase().includes('row level security') ||
+        f.content.toLowerCase().includes('enable rls') ||
+        f.content.toLowerCase().includes('create policy')
+      );
+      if (!hasMigrations && !hasPolicies) {
+        findings.push({
+          id: makeFindingId('config.supabase-missing-rls', 'supabase', 0),
+          ruleId: 'config.supabase-missing-rls',
+          title: 'Supabase Detected Without Row Level Security Policies',
+          severity: 'high',
+          confidence: 'low',
+          owasp: ['A01 Broken Access Control'],
+          cwe: ['CWE-284'],
+          category: 'Configuration',
+          evidence: {
+            reason: 'Supabase is used but no RLS policies or SQL migrations were found in the project',
+          },
+          impact: 'Without RLS, any authenticated user can access all rows in every table.',
+          recommendation: 'Enable RLS on every Supabase table: ALTER TABLE users ENABLE ROW LEVEL SECURITY. Define per-user access policies.',
+          tags: ['supabase', 'rls', 'access-control'],
         });
       }
     }

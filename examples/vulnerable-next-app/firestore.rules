@@ -1,0 +1,24 @@
+// VULNERABLE EXAMPLE — Firebase Firestore rules allowing public access
+// Scanner should flag: allow read, write: if true (critical finding)
+// This is a FAKE configuration for scanner testing only
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // VULNERABLE: All users (including unauthenticated) can read and write everything
+    match /{document=**} {
+      allow read, write: if true;
+    }
+
+    // VULNERABLE: No auth requirement on user data
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // VULNERABLE: Admin data is publicly accessible
+    match /admin/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

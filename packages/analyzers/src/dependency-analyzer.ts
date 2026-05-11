@@ -3,8 +3,8 @@ import type { ScannedFile } from '@cybermat/shared';
 export interface DependencyRisk {
   name: string;
   version: string;
-  riskType: 'known-vuln' | 'wildcard-version' | 'lifecycle-script' | 'deprecated' | 'typosquat';
-  severity: 'critical' | 'high' | 'medium' | 'low';
+  riskType: 'wildcard-version' | 'lifecycle-script' | 'no-lockfile';
+  severity: 'high' | 'medium' | 'low';
   detail: string;
 }
 
@@ -14,15 +14,60 @@ export interface DependencyAnalysisResult {
   directDeps: number;
 }
 
-/**
- * Analyzes package.json and lockfiles for dependency risks.
- * Phase 4 implementation: integrates with npm audit / OSV / Trivy adapter.
- */
 export function analyzeDependencies(
-  _files: ScannedFile[],
-  _packageJson?: Record<string, unknown>,
+  files: ScannedFile[],
+  packageJson?: Record<string, unknown>,
 ): DependencyAnalysisResult {
-  // Phase 4: parse package.json + lockfiles, check for wildcard versions,
-  // suspicious lifecycle scripts, and optionally query OSV/npm audit JSON output.
-  return { risks: [], totalDeps: 0, directDeps: 0 };
+  const risks: DependencyRisk[] = [];
+
+  if (!packageJson) return { risks, totalDeps: 0, directDeps: 0 };
+
+  const deps = (packageJson.dependencies as Record<string, string>) ?? {};
+  const devDeps = (packageJson.devDependencies as Record<string, string>) ?? {};
+  const allDeps = { ...deps, ...devDeps };
+
+  const directDeps = Object.keys(deps).length;
+  const totalDeps = Object.keys(allDeps).length;
+
+  // Wildcard or overly broad versions
+  for (const [name, version] of Object.entries(allDeps)) {
+    if (version === '*' || version === 'x') {
+      risks.push({ name, version, riskType: 'wildcard-version', severity: 'high', detail: `Wildcard version "${version}" — any version may be installed including breaking or malicious releases` });
+    } else if (version.startsWith('>') || version === 'latest') {
+      risks.push({ name, version, riskType: 'wildcard-version', severity: 'medium', detail: `Overly broad version constraint "${version}" — exact version not pinned` });
+    }
+  }
+
+  // Lifecycle scripts (install/postinstall can run arbitrary code)
+  const scripts = (packageJson.scripts as Record<string, string>) ?? {};
+  for (const [hook, cmd] of Object.entries(scripts)) {
+    if (['install', 'postinstall', 'preinstall'].includes(hook)) {
+      risks.push({
+        name: 'package.json lifecycle script',
+        version: '-',
+        riskType: 'lifecycle-script',
+        severity: 'medium',
+        detail: `"${hook}" script runs on install: ${String(cmd).slice(0, 80)}`,
+      });
+    }
+  }
+
+  // Missing lockfile
+  const hasLockfile = files.some(f =>
+    f.relativePath === 'package-lock.json' ||
+    f.relativePath === 'pnpm-lock.yaml' ||
+    f.relativePath === 'yarn.lock' ||
+    f.relativePath === 'bun.lockb'
+  );
+  if (!hasLockfile) {
+    risks.push({
+      name: 'lockfile',
+      version: '-',
+      riskType: 'no-lockfile',
+      severity: 'medium',
+      detail: 'No lockfile found (package-lock.json, pnpm-lock.yaml, yarn.lock, bun.lockb). Dependency versions are not pinned.',
+    });
+  }
+
+  return { risks, totalDeps, directDeps };
 }

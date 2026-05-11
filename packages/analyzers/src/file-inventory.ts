@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import type { ScannedFile, ScannerConfig } from '@cybermat/shared';
 
 const IGNORE_DIRS = new Set([
@@ -14,7 +15,7 @@ const TEXT_EXTENSIONS = new Set([
   '.json', '.yaml', '.yml', '.toml', '.env',
   '.md', '.mdx', '.txt', '.html', '.css', '.scss',
   '.sql', '.graphql', '.gql', '.prisma', '.sh',
-  '.vue', '.svelte', '.astro',
+  '.vue', '.svelte', '.astro', '.rules',
 ]);
 
 const SENSITIVE_FILENAMES = new Set([
@@ -88,12 +89,15 @@ export function buildFileInventory(rootPath: string, config: ScannerConfig): Fil
 
       if (content.includes('\0')) continue;
 
+      const sha256 = crypto.createHash('sha256').update(content).digest('hex');
+
       files.push({
         path: fullPath,
         relativePath,
         extension: ext || basename,
         sizeBytes: stat.size,
         content,
+        sha256,
       });
     }
   }
