@@ -2,13 +2,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type {
   Rule, ScanReport, ScanOptions, ScanSummary, Finding,
-  ScannerConfig, DetectedStack, Severity,
+  ScannerConfig, DetectedStack, Severity, ScannerLayer, ScanMetadata,
 } from '@cybermat/shared';
 import { DEFAULT_CONFIG } from '@cybermat/shared';
 import { buildFileInventory } from './file-inventory';
 import { detectStack } from './stack-detector';
 import { writeReports } from './report-writer';
 import { loadIgnoreRules, applyIgnoreRules } from './ignore-loader';
+
+const SCANNER_VERSION = '0.3.0';
 
 const SEVERITY_WEIGHTS: Record<Severity, number> = {
   critical: 25,
@@ -82,6 +84,15 @@ function getTopRecommendations(findings: Finding[]): string[] {
   return recs;
 }
 
+function groupByLayer(findings: Finding[]): Record<ScannerLayer, Finding[]> {
+  const groups: Record<ScannerLayer, Finding[]> = { code: [], runtime: [], authz: [] };
+  for (const f of findings) {
+    const layer: ScannerLayer = f.layer ?? 'code';
+    groups[layer].push(f);
+  }
+  return groups;
+}
+
 function loadPackageJson(rootPath: string): Record<string, unknown> | undefined {
   const pkgPath = path.join(rootPath, 'package.json');
   try {
@@ -92,6 +103,11 @@ function loadPackageJson(rootPath: string): Record<string, unknown> | undefined 
     // ignore
   }
   return undefined;
+}
+
+function tagFindingLayer(f: Finding, ruleLayer: ScannerLayer | undefined): Finding {
+  if (f.layer) return f;
+  return { ...f, layer: ruleLayer ?? 'code' };
 }
 
 export async function runScan(
@@ -120,17 +136,33 @@ export async function runScan(
     config,
   };
 
-  const ruleResults = await Promise.all(rules.map(r => r.run(ruleContext).catch(() => [] as Finding[])));
+  const ruleResults = await Promise.all(
+    rules.map(r =>
+      r.run(ruleContext)
+        .then(findings => findings.map(f => tagFindingLayer(f, r.layer)))
+        .catch(() => [] as Finding[])
+    )
+  );
   const allFindings = deduplicateFindings(ruleResults.flat());
   const filteredFindings = applyIgnoreRules(allFindings, ignoreRules);
 
-  const report: ScanReport = {
+  const timestamp = new Date().toISOString();
+  const metadata: ScanMetadata = {
+    timestamp,
     scannedPath: absolutePath,
-    timestamp: new Date().toISOString(),
+    layers: ['code'],
+    version: SCANNER_VERSION,
+  };
+
+  const report: ScanReport = {
+    metadata,
+    scannedPath: absolutePath,
+    timestamp,
     filesScanned: files.length,
     filesIgnored: ignored,
     detectedStack,
     findings: filteredFindings,
+    findingsByLayer: groupByLayer(filteredFindings),
     riskScore: calcRiskScore(filteredFindings),
     summary: calcSummary(filteredFindings),
     owaspCoverage: getOwaspCoverage(filteredFindings),

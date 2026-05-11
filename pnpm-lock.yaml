@@ -43,6 +43,22 @@ importers:
         specifier: ^5.0.0
         version: 5.9.3
 
+  packages/analyzers:
+    dependencies:
+      '@cybermat/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.40
+      rimraf:
+        specifier: ^5.0.7
+        version: 5.0.10
+      typescript:
+        specifier: ^5.4.5
+        version: 5.9.3
+
   packages/cli:
     dependencies:
       '@cybermat/core':
@@ -73,6 +89,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@cybermat/analyzers':
+        specifier: workspace:*
+        version: link:../analyzers
       '@cybermat/shared':
         specifier: workspace:*
         version: link:../shared

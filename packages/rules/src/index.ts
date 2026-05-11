@@ -6,8 +6,11 @@ import { configRule } from './config';
 import { cryptoRule } from './crypto';
 import { supplyChainRule } from './supply-chain';
 import { aiSecurityRule } from './ai';
+import { runtimeRules } from './runtime';
+import { authzRules } from './authz';
 
-export const allRules: Rule[] = [
+/** All code-scanner rules (Layer 1) */
+export const codeRules: Rule[] = [
   secretsRule,
   injectionRule,
   authRule,
@@ -17,6 +20,9 @@ export const allRules: Rule[] = [
   aiSecurityRule,
 ];
 
+/** All rules active during a default `appsec scan` */
+export const allRules: Rule[] = codeRules;
+
 export {
   secretsRule,
   injectionRule,
@@ -25,4 +31,6 @@ export {
   cryptoRule,
   supplyChainRule,
   aiSecurityRule,
+  runtimeRules,
+  authzRules,
 };
