@@ -5,3 +5,6 @@ export { authzScannerEngine } from './authz-scanner';
 
 // Direct engine exports (used by rules and the code-scanner facade)
 export * from './secrets-engine';
+
+// Runtime engine — public API for Phase 6
+export { RuntimeScanner } from './runtime-engine';

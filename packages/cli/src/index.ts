@@ -3,8 +3,8 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import * as path from 'path';
 import * as fs from 'fs';
-import type { ScanReport, Finding, Severity, RuleMetadata, RuleEngine } from '@cybermat/shared';
-import { runScan } from '@cybermat/core';
+import type { ScanReport, Finding, Severity, RuleMetadata, RuleEngine, RuntimeScanReport, RuntimeFinding } from '@cybermat/shared';
+import { runScan, runRuntimeScan } from '@cybermat/core';
 import { allRules, defaultRegistry } from '@cybermat/rules';
 
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8')) as { version: string };
@@ -409,6 +409,130 @@ rulesCmd
     console.log(chalk.green(`  ✅  docs/rules.md generated — ${rules.length} rules documented`));
     console.log(`  ${chalk.cyan(outputPath)}`);
     console.log('');
+  });
+
+// ── scan-runtime command ─────────────────────────────────────────────────────
+
+function printRuntimeFinding(f: RuntimeFinding, index: number): void {
+  const sev = SEVERITY_CHALK[f.severity](`[${f.severity.toUpperCase()}]`);
+  console.log(`  ${chalk.gray(`${index}.`)} ${sev} ${chalk.white.bold(f.title)}`);
+  if (f.url) console.log(`     ${chalk.gray('URL:')}      ${chalk.cyan(f.url)}`);
+  if (f.headerName) console.log(`     ${chalk.gray('Header:')}   ${chalk.yellow(f.headerName)}`);
+  if (f.cookieName) console.log(`     ${chalk.gray('Cookie:')}   ${chalk.yellow(f.cookieName)}`);
+  if (f.owasp.length > 0) console.log(`     ${chalk.gray('OWASP:')}    ${chalk.green(f.owasp.join(', '))}`);
+  const ev = f.evidence?.redactedSnippet ?? f.evidence?.snippet ?? f.evidence?.reason;
+  if (ev) console.log(`     ${chalk.gray('Evidence:')} ${chalk.yellow(ev)}`);
+  console.log(`     ${chalk.gray('Fix:')}      ${f.recommendation.slice(0, 100)}${f.recommendation.length > 100 ? '...' : ''}`);
+  console.log('');
+}
+
+function printRuntimeReport(report: RuntimeScanReport): void {
+  const { summary, riskScore, findings, pagesVisited, requestsMade, durationMs } = report;
+
+  console.log(`  ${chalk.gray('Target:')}    ${chalk.white(report.targetUrl)}`);
+  console.log(`  ${chalk.gray('Pages:')}     ${chalk.white(String(pagesVisited))} visited`);
+  console.log(`  ${chalk.gray('Requests:')} ${chalk.white(String(requestsMade))} made`);
+  console.log(`  ${chalk.gray('Duration:')} ${chalk.white(`${(durationMs / 1000).toFixed(1)}s`)}`);
+  console.log('');
+  console.log(chalk.gray('  ─────────────────────────────────────────────'));
+  console.log('');
+
+  if (findings.length === 0) {
+    console.log(chalk.green.bold('  ✅  No runtime findings detected.'));
+  } else {
+    let idx = 1;
+    for (const severity of SEVERITY_ORDER) {
+      const group = findings.filter(f => f.severity === severity);
+      if (group.length === 0) continue;
+      console.log(`  ${SEVERITY_CHALK[severity](`${severity.toUpperCase()} (${group.length})`)}`);
+      console.log('');
+      for (const f of group) printRuntimeFinding(f as RuntimeFinding, idx++);
+    }
+  }
+
+  console.log(chalk.gray('  ─────────────────────────────────────────────'));
+  console.log('');
+
+  const scoreColor = riskScore >= 70 ? chalk.green : riskScore >= 40 ? chalk.yellow : chalk.red;
+  console.log(`  ${chalk.gray('Risk Score:')} ${scoreColor.bold(String(riskScore))} ${chalk.gray('/ 100')}`);
+
+  const summaryParts = [
+    summary.critical > 0 ? chalk.red.bold(`Critical: ${summary.critical}`) : '',
+    summary.high > 0 ? chalk.red(`High: ${summary.high}`) : '',
+    summary.medium > 0 ? chalk.yellow(`Medium: ${summary.medium}`) : '',
+    summary.low > 0 ? chalk.blue(`Low: ${summary.low}`) : '',
+    summary.info > 0 ? chalk.gray(`Info: ${summary.info}`) : '',
+  ].filter(Boolean).join(chalk.gray(' | '));
+  if (summaryParts) console.log(`  ${summaryParts}`);
+
+  console.log('');
+
+  if (report.topRecommendations.length > 0) {
+    console.log(chalk.gray('  Top fixes:'));
+    report.topRecommendations.slice(0, 3).forEach((r, i) => {
+      console.log(`  ${chalk.gray(`${i + 1}.`)} ${r.slice(0, 100)}${r.length > 100 ? '...' : ''}`);
+    });
+    console.log('');
+  }
+}
+
+program
+  .command('scan-runtime <url>')
+  .description('Safely scan a running application via HTTP and Playwright browser automation')
+  .option('--max-pages <n>', 'Maximum pages to crawl', '20')
+  .option('--max-depth <n>', 'Maximum crawl depth', '3')
+  .option('--delay <ms>', 'Delay between requests in milliseconds', '150')
+  .option('--timeout <ms>', 'Request timeout in milliseconds', '15000')
+  .option('--json', 'Output full JSON report to stdout')
+  .option('--no-browser', 'Skip Playwright browser crawl (HTTP probes only)')
+  .action(async (url: string, opts: {
+    maxPages: string; maxDepth: string; delay: string; timeout: string;
+    json?: boolean; browser: boolean;
+  }) => {
+    printBanner();
+
+    // Validate URL
+    try { new URL(url); } catch {
+      console.error(chalk.red(`  Error: Invalid URL: ${url}`));
+      process.exit(2);
+    }
+
+    const isLocalOrStaging = url.includes('localhost') || url.includes('127.0.0.1') ||
+      url.includes('.local') || url.includes('staging') || url.includes('test');
+    if (!isLocalOrStaging) {
+      console.log(chalk.yellow(`  Warning: Target does not appear to be localhost or staging.`));
+      console.log(chalk.yellow(`  Only scan applications you are authorized to test.`));
+      console.log('');
+    }
+
+    console.log(chalk.gray(`  Scanning runtime target: ${url}`));
+    console.log(chalk.gray(`  Safe mode: GET/HEAD probes only + harmless markers`));
+    console.log('');
+
+    try {
+      const report = await runRuntimeScan({
+        baseUrl: url,
+        maxPages: parseInt(opts.maxPages, 10),
+        maxDepth: parseInt(opts.maxDepth, 10),
+        requestDelayMs: parseInt(opts.delay, 10),
+        timeoutMs: parseInt(opts.timeout, 10),
+        safeMode: true,
+      });
+
+      if (opts.json) {
+        process.stdout.write(JSON.stringify(report, null, 2));
+        return;
+      }
+
+      printRuntimeReport(report);
+
+      const hasCritical = report.summary.critical > 0;
+      const hasHigh = report.summary.high > 0;
+      process.exit(hasCritical || hasHigh ? 1 : 0);
+    } catch (err) {
+      console.error(chalk.red('  Runtime scan failed:'), err);
+      process.exit(2);
+    }
   });
 
 // ── dashboard command ────────────────────────────────────────────────────────

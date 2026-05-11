@@ -9,7 +9,8 @@
     "clean": "rimraf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@cybermat/shared": "workspace:*"
+    "@cybermat/shared": "workspace:*",
+    "playwright": "^1.45.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -68,6 +68,19 @@ export interface Finding {
   tags: string[];
   /** Populated by the scanner orchestrator if omitted by the rule; defaults to 'code' */
   layer?: ScannerLayer;
+  // Runtime-specific fields (populated by runtime scanner)
+  url?: string;
+  method?: string;
+  statusCode?: number;
+  requestEvidence?: string;
+  responseEvidence?: string;
+  headerName?: string;
+  cookieName?: string;
+}
+
+export interface RuntimeFinding extends Finding {
+  url: string;
+  layer: 'runtime';
 }
 
 export type FileKind = 'client' | 'server' | 'shared' | 'config' | 'public' | 'test' | 'unknown';
@@ -278,3 +291,75 @@ export const DEFAULT_CONFIG: ScannerConfig = {
   maxFileSizeBytes: 1_000_000,
   outputDir: '.appsec',
 };
+
+// ─── Runtime Scan Types ───────────────────────────────────────────────────────
+
+export interface RuntimeConfig {
+  baseUrl: string;
+  allowedHosts?: string[];
+  disallowedHosts?: string[];
+  disallowedPaths?: string[];
+  maxPages?: number;
+  maxDepth?: number;
+  maxRequests?: number;
+  requestDelayMs?: number;
+  timeoutMs?: number;
+  safeMode?: boolean;
+  userAgent?: string;
+}
+
+export interface CrawledCookie {
+  name: string;
+  value: string;
+  domain?: string;
+  path?: string;
+  secure?: boolean;
+  httpOnly?: boolean;
+  sameSite?: string;
+  expires?: number;
+}
+
+export interface FormField {
+  name?: string;
+  type?: string;
+  value?: string;
+}
+
+export interface CrawledForm {
+  action?: string;
+  method?: string;
+  fields: FormField[];
+}
+
+export interface NetworkRequest {
+  url: string;
+  method: string;
+  status?: number;
+  headers?: Record<string, string>;
+}
+
+export interface CrawledPage {
+  url: string;
+  depth: number;
+  statusCode: number;
+  headers: Record<string, string>;
+  cookies: CrawledCookie[];
+  links: string[];
+  forms: CrawledForm[];
+  scripts: string[];
+  networkRequests: NetworkRequest[];
+  consoleErrors: string[];
+  redirectChain: string[];
+}
+
+export interface RuntimeScanReport {
+  targetUrl: string;
+  pagesVisited: number;
+  requestsMade: number;
+  durationMs: number;
+  findings: RuntimeFinding[];
+  summary: ScanSummary;
+  riskScore: number;
+  owaspCoverage: string[];
+  topRecommendations: string[];
+}
