@@ -9,6 +9,21 @@ import { aiSecurityRule } from './ai';
 import { runtimeRules } from './runtime';
 import { authzRules } from './authz';
 
+export { RuleRegistry } from './registry';
+export { mapFindingToOwasp } from './owasp-map';
+export {
+  defaultRegistry,
+  secretsPack,
+  injectionPack,
+  authPack,
+  configPack,
+  cryptoPack,
+  supplyChainPack,
+  aiSecurityPack,
+  runtimePack,
+  authzPack,
+} from './packs';
+
 /** All code-scanner rules (Layer 1) */
 export const codeRules: Rule[] = [
   secretsRule,

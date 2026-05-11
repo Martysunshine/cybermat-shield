@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import { SECRET_DETECTORS } from './detectors';
 
 export { SECRET_DETECTORS } from './detectors';
+export type { SecretDetector } from './detectors';
 
 export function redactSecret(value: string): string {
   if (!value) return '****';

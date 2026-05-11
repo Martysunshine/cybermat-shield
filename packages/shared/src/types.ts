@@ -1,6 +1,43 @@
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type Confidence = 'high' | 'medium' | 'low';
 export type ScannerLayer = 'code' | 'runtime' | 'authz';
+export type RuleEngine = 'secrets' | 'static' | 'dependency' | 'config' | 'runtime' | 'authz' | 'ai';
+
+export interface RuleMetadata {
+  id: string;
+  name: string;
+  description: string;
+  engine: RuleEngine;
+  category: string;
+  severity: Severity;
+  confidence: Confidence;
+  owasp2025: string[];
+  cwe?: string[];
+  asvs?: string[];
+  wstg?: string[];
+  tags: string[];
+  enabledByDefault: boolean;
+  safeForCI: boolean;
+  requiresRuntime: boolean;
+  requiresAuth: boolean;
+  falsePositiveNotes?: string;
+  remediation: string;
+  insecureExample?: string;
+  saferExample?: string;
+}
+
+export interface RulePack {
+  id: string;
+  name: string;
+  description: string;
+  rules: RuleMetadata[];
+}
+
+export interface RulesConfig {
+  disabled?: string[];
+  enabled?: string[];
+  severityOverrides?: Record<string, Severity>;
+}
 
 export interface FindingEvidence {
   snippet?: string;
@@ -119,6 +156,7 @@ export interface ScannerConfig {
   maxFileSizeBytes: number;
   severityThreshold?: Severity;
   outputDir: string;
+  rules?: RulesConfig;
 }
 
 export interface RuleContext {
@@ -231,6 +269,7 @@ export interface ScanOptions {
   html?: boolean;
   outputDir?: string;
   severityThreshold?: Severity;
+  rulesConfig?: RulesConfig;
 }
 
 export const DEFAULT_CONFIG: ScannerConfig = {

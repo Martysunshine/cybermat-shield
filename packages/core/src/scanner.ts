@@ -16,7 +16,7 @@ import { buildImportGraph } from '@cybermat/analyzers';
 import { analyzeAst } from '@cybermat/analyzers';
 import { correlateSources } from '@cybermat/analyzers';
 
-const SCANNER_VERSION = '0.4.0';
+const SCANNER_VERSION = '0.5.0';
 
 const SEVERITY_WEIGHTS: Record<Severity, number> = {
   critical: 25,
@@ -222,7 +222,23 @@ export async function runScan(
   );
 
   // 10. Normalize, deduplicate, filter
-  const allFindings = deduplicateFindings(ruleResults.flat());
+  let allFindings = deduplicateFindings(ruleResults.flat());
+
+  // Apply rules config overrides (disabled rules, severity overrides)
+  if (options.rulesConfig) {
+    const { disabled = [], severityOverrides = {} } = options.rulesConfig;
+    if (disabled.length > 0) {
+      const disabledSet = new Set(disabled);
+      allFindings = allFindings.filter(f => !disabledSet.has(f.ruleId));
+    }
+    if (Object.keys(severityOverrides).length > 0) {
+      allFindings = allFindings.map(f => {
+        const override = severityOverrides[f.ruleId] as Severity | undefined;
+        return override ? { ...f, severity: override } : f;
+      });
+    }
+  }
+
   const filteredFindings = applyIgnoreRules(allFindings, ignoreRules);
 
   // 11. Score & report

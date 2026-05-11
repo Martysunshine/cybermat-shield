@@ -3,9 +3,9 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import * as path from 'path';
 import * as fs from 'fs';
-import type { ScanReport, Finding, Severity } from '@cybermat/shared';
+import type { ScanReport, Finding, Severity, RuleMetadata, RuleEngine } from '@cybermat/shared';
 import { runScan } from '@cybermat/core';
-import { allRules } from '@cybermat/rules';
+import { allRules, defaultRegistry } from '@cybermat/rules';
 
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8')) as { version: string };
 
@@ -55,7 +55,6 @@ function printFinding(f: Finding, index: number): void {
 function printReport(report: ScanReport): void {
   const { summary, riskScore, detectedStack, findings, filesScanned, filesIgnored } = report;
 
-  // Scan info
   const stackStr = [
     ...detectedStack.frameworks,
     ...detectedStack.databases.slice(0, 2),
@@ -89,11 +88,9 @@ function printReport(report: ScanReport): void {
   console.log(chalk.gray('  ─────────────────────────────────────────────'));
   console.log('');
 
-  // Score
   const scoreColor = riskScore >= 70 ? chalk.green : riskScore >= 40 ? chalk.yellow : riskScore >= 20 ? chalk.red : chalk.bgRed.white;
   console.log(`  ${chalk.gray('Risk Score:')} ${scoreColor.bold(String(riskScore))} ${chalk.gray('/ 100')}`);
 
-  // Summary
   const summaryParts = [
     summary.critical > 0 ? chalk.red.bold(`Critical: ${summary.critical}`) : '',
     summary.high > 0 ? chalk.red(`High: ${summary.high}`) : '',
@@ -123,6 +120,117 @@ function printReport(report: ScanReport): void {
   console.log('');
 }
 
+// ─── Rules docs generator ──────────────────────────────────────────────────
+
+function generateRulesDocs(rules: RuleMetadata[]): string {
+  const byEngine = new Map<string, RuleMetadata[]>();
+  for (const rule of rules) {
+    if (!byEngine.has(rule.engine)) byEngine.set(rule.engine, []);
+    byEngine.get(rule.engine)!.push(rule);
+  }
+
+  const engineOrder: RuleEngine[] = ['secrets', 'static', 'config', 'dependency', 'ai', 'runtime', 'authz'];
+  const engineNames: Record<string, string> = {
+    secrets: 'Secret Detection',
+    static: 'Static Code Analysis',
+    config: 'Configuration',
+    dependency: 'Supply Chain',
+    ai: 'AI Security',
+    runtime: 'Runtime Scanner (Phase 6)',
+    authz: 'Auth/Access Control Scanner (Phase 7)',
+  };
+
+  const lines: string[] = [
+    '# CyberMat Shield — Security Rules Reference',
+    '',
+    `> Generated from rule registry. **${rules.length} rules** across ${byEngine.size} engines.`,
+    '',
+    '## Quick Reference',
+    '',
+    '| Rule ID | Severity | Engine | OWASP |',
+    '|---------|----------|--------|-------|',
+    ...rules.map(r =>
+      `| \`${r.id}\` | ${r.severity} | ${r.engine} | ${r.owasp2025.join(', ')} |`
+    ),
+    '',
+  ];
+
+  for (const engine of engineOrder) {
+    const engineRules = byEngine.get(engine);
+    if (!engineRules || engineRules.length === 0) continue;
+
+    lines.push(`## ${engineNames[engine] ?? engine} (\`${engine}\`)`);
+    lines.push('');
+
+    for (const rule of engineRules) {
+      lines.push(`### \`${rule.id}\``);
+      lines.push('');
+      lines.push(`**${rule.name}**`);
+      lines.push('');
+      lines.push(`> ${rule.description}`);
+      lines.push('');
+      lines.push(`| Field | Value |`);
+      lines.push(`|-------|-------|`);
+      lines.push(`| Severity | \`${rule.severity}\` |`);
+      lines.push(`| Confidence | \`${rule.confidence}\` |`);
+      lines.push(`| Engine | \`${rule.engine}\` |`);
+      lines.push(`| Category | ${rule.category} |`);
+      lines.push(`| Enabled by default | ${rule.enabledByDefault ? 'Yes' : 'No'} |`);
+      lines.push(`| Safe for CI | ${rule.safeForCI ? 'Yes' : 'No'} |`);
+      lines.push(`| Requires runtime | ${rule.requiresRuntime ? 'Yes' : 'No'} |`);
+      lines.push(`| Requires auth config | ${rule.requiresAuth ? 'Yes' : 'No'} |`);
+      lines.push('');
+
+      if (rule.owasp2025.length > 0) {
+        lines.push(`**OWASP Top 10:2025:** ${rule.owasp2025.join(', ')}`);
+        lines.push('');
+      }
+      if (rule.cwe && rule.cwe.length > 0) {
+        lines.push(`**CWE:** ${rule.cwe.join(', ')}`);
+        lines.push('');
+      }
+      if (rule.asvs && rule.asvs.length > 0) {
+        lines.push(`**ASVS:** ${rule.asvs.join(', ')}`);
+        lines.push('');
+      }
+      if (rule.wstg && rule.wstg.length > 0) {
+        lines.push(`**WSTG:** ${rule.wstg.join(', ')}`);
+        lines.push('');
+      }
+      if (rule.tags.length > 0) {
+        lines.push(`**Tags:** ${rule.tags.map(t => `\`${t}\``).join(' ')}`);
+        lines.push('');
+      }
+      if (rule.insecureExample) {
+        lines.push('**Insecure Example:**');
+        lines.push('```');
+        lines.push(rule.insecureExample);
+        lines.push('```');
+        lines.push('');
+      }
+      if (rule.saferExample) {
+        lines.push('**Safer Example:**');
+        lines.push('```');
+        lines.push(rule.saferExample);
+        lines.push('```');
+        lines.push('');
+      }
+      lines.push(`**Remediation:** ${rule.remediation}`);
+      lines.push('');
+      if (rule.falsePositiveNotes) {
+        lines.push(`**False Positive Notes:** ${rule.falsePositiveNotes}`);
+        lines.push('');
+      }
+      lines.push('---');
+      lines.push('');
+    }
+  }
+
+  return lines.join('\n');
+}
+
+// ─── CLI setup ────────────────────────────────────────────────────────────
+
 const program = new Command();
 
 program
@@ -130,6 +238,7 @@ program
   .description('CyberMat Shield — Local-first Application Security Scanner')
   .version(pkg.version);
 
+// ── scan command ────────────────────────────────────────────────────────────
 program
   .command('scan <path>')
   .description('Scan a project directory for security issues')
@@ -170,6 +279,139 @@ program
     }
   });
 
+// ── rules command group ──────────────────────────────────────────────────────
+const rulesCmd = program
+  .command('rules')
+  .description('Inspect and manage security rules');
+
+rulesCmd
+  .command('list')
+  .description('List all security rules')
+  .option('--owasp <code>', 'Filter by OWASP Top 10:2025 category code (e.g. A05)')
+  .option('--engine <engine>', 'Filter by engine (secrets, static, config, dependency, ai, runtime, authz)')
+  .option('--tag <tag>', 'Filter by tag (e.g. nextjs, xss, jwt)')
+  .action((opts: { owasp?: string; engine?: string; tag?: string }) => {
+    let rules = defaultRegistry.listRules();
+
+    if (opts.owasp) {
+      rules = defaultRegistry.getRulesByOwasp(opts.owasp);
+    }
+    if (opts.engine) {
+      rules = rules.filter(r => r.engine === opts.engine);
+    }
+    if (opts.tag) {
+      rules = rules.filter(r => r.tags.some(t => t.toLowerCase() === opts.tag!.toLowerCase()));
+    }
+
+    if (rules.length === 0) {
+      console.log(chalk.yellow('  No rules match the given filters.'));
+      return;
+    }
+
+    console.log('');
+    console.log(`  ${chalk.cyan.bold(`${rules.length} rules`)}\n`);
+
+    const bySeverity = new Map<Severity, RuleMetadata[]>();
+    for (const rule of rules) {
+      if (!bySeverity.has(rule.severity)) bySeverity.set(rule.severity, []);
+      bySeverity.get(rule.severity)!.push(rule);
+    }
+
+    for (const sev of SEVERITY_ORDER) {
+      const group = bySeverity.get(sev);
+      if (!group) continue;
+      console.log(SEVERITY_CHALK[sev](`  ${sev.toUpperCase()} (${group.length})`));
+      for (const r of group) {
+        const enabled = defaultRegistry.isEnabled(r.id) ? chalk.green('●') : chalk.red('○');
+        console.log(`  ${enabled} ${chalk.white(r.id.padEnd(50))} ${chalk.gray(r.engine.padEnd(12))} ${chalk.cyan(r.owasp2025[0] ?? '')}`);
+      }
+      console.log('');
+    }
+  });
+
+rulesCmd
+  .command('show <ruleId>')
+  .description('Show full details for a specific rule')
+  .action((ruleId: string) => {
+    const rule = defaultRegistry.getRuleById(ruleId);
+    if (!rule) {
+      console.error(chalk.red(`  Rule not found: ${ruleId}`));
+      console.log(chalk.gray(`  Run "appsec rules list" to see all available rule IDs.`));
+      process.exit(1);
+    }
+
+    console.log('');
+    console.log(chalk.cyan.bold(`  ${rule.id}`));
+    console.log(`  ${chalk.white.bold(rule.name)}`);
+    console.log('');
+    console.log(`  ${chalk.gray('Description:')} ${rule.description}`);
+    console.log('');
+    console.log(`  ${chalk.gray('Severity:')}    ${SEVERITY_CHALK[rule.severity](rule.severity.toUpperCase())}`);
+    console.log(`  ${chalk.gray('Confidence:')} ${rule.confidence}`);
+    console.log(`  ${chalk.gray('Engine:')}     ${rule.engine}`);
+    console.log(`  ${chalk.gray('Category:')}   ${rule.category}`);
+    console.log(`  ${chalk.gray('Enabled:')}    ${defaultRegistry.isEnabled(rule.id) ? chalk.green('yes') : chalk.red('no (disabled)')}`);
+    console.log('');
+    if (rule.owasp2025.length > 0) {
+      console.log(`  ${chalk.gray('OWASP 2025:')} ${chalk.green(rule.owasp2025.join(', '))}`);
+    }
+    if (rule.cwe && rule.cwe.length > 0) {
+      console.log(`  ${chalk.gray('CWE:')}        ${rule.cwe.join(', ')}`);
+    }
+    if (rule.asvs && rule.asvs.length > 0) {
+      console.log(`  ${chalk.gray('ASVS:')}       ${rule.asvs.join(', ')}`);
+    }
+    if (rule.wstg && rule.wstg.length > 0) {
+      console.log(`  ${chalk.gray('WSTG:')}       ${rule.wstg.join(', ')}`);
+    }
+    if (rule.tags.length > 0) {
+      console.log(`  ${chalk.gray('Tags:')}       ${rule.tags.join(', ')}`);
+    }
+    console.log('');
+    console.log(`  ${chalk.gray('Remediation:')}`);
+    console.log(`  ${rule.remediation}`);
+    if (rule.falsePositiveNotes) {
+      console.log('');
+      console.log(`  ${chalk.gray('False positive notes:')}`);
+      console.log(`  ${rule.falsePositiveNotes}`);
+    }
+    if (rule.insecureExample) {
+      console.log('');
+      console.log(`  ${chalk.red('Insecure example:')}`);
+      rule.insecureExample.split('\n').forEach(l => console.log(`    ${chalk.gray(l)}`));
+    }
+    if (rule.saferExample) {
+      console.log('');
+      console.log(`  ${chalk.green('Safer example:')}`);
+      rule.saferExample.split('\n').forEach(l => console.log(`    ${chalk.gray(l)}`));
+    }
+    console.log('');
+  });
+
+rulesCmd
+  .command('docs')
+  .description('Generate docs/rules.md from rule registry metadata')
+  .option('--output <path>', 'Output file path', 'docs/rules.md')
+  .action((opts: { output: string }) => {
+    const rules = defaultRegistry.listRules();
+    const markdown = generateRulesDocs(rules);
+
+    const outputPath = path.resolve(opts.output);
+    const outputDir = path.dirname(outputPath);
+
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    fs.writeFileSync(outputPath, markdown, 'utf-8');
+
+    console.log('');
+    console.log(chalk.green(`  ✅  docs/rules.md generated — ${rules.length} rules documented`));
+    console.log(`  ${chalk.cyan(outputPath)}`);
+    console.log('');
+  });
+
+// ── dashboard command ────────────────────────────────────────────────────────
 program
   .command('dashboard')
   .description('Open the security dashboard (Phase 8)')
