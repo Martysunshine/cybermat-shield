@@ -8,6 +8,7 @@ import { DEFAULT_CONFIG } from '@cybermat/shared';
 import { buildFileInventory } from './file-inventory';
 import { detectStack } from './stack-detector';
 import { writeReports } from './report-writer';
+import { loadIgnoreRules, applyIgnoreRules } from './ignore-loader';
 
 const SEVERITY_WEIGHTS: Record<Severity, number> = {
   critical: 25,
@@ -109,6 +110,7 @@ export async function runScan(
   const packageJson = loadPackageJson(absolutePath);
   const { files, ignored } = buildFileInventory(absolutePath, config);
   const detectedStack: DetectedStack = detectStack(files, packageJson);
+  const ignoreRules = loadIgnoreRules(absolutePath);
 
   const ruleContext = {
     rootPath: absolutePath,
@@ -118,9 +120,9 @@ export async function runScan(
     config,
   };
 
-  // Run all rules concurrently
   const ruleResults = await Promise.all(rules.map(r => r.run(ruleContext).catch(() => [] as Finding[])));
   const allFindings = deduplicateFindings(ruleResults.flat());
+  const filteredFindings = applyIgnoreRules(allFindings, ignoreRules);
 
   const report: ScanReport = {
     scannedPath: absolutePath,
@@ -128,11 +130,11 @@ export async function runScan(
     filesScanned: files.length,
     filesIgnored: ignored,
     detectedStack,
-    findings: allFindings,
-    riskScore: calcRiskScore(allFindings),
-    summary: calcSummary(allFindings),
-    owaspCoverage: getOwaspCoverage(allFindings),
-    topRecommendations: getTopRecommendations(allFindings),
+    findings: filteredFindings,
+    riskScore: calcRiskScore(filteredFindings),
+    summary: calcSummary(filteredFindings),
+    owaspCoverage: getOwaspCoverage(filteredFindings),
+    topRecommendations: getTopRecommendations(filteredFindings),
   };
 
   writeReports(report, outputDir);

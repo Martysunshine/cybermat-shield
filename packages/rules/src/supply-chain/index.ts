@@ -21,7 +21,6 @@ export const supplyChainRule: Rule = {
     const devDeps = (pkg.devDependencies as Record<string, string>) || {};
     const allDeps = { ...deps, ...devDeps };
 
-    // Suspicious lifecycle scripts
     for (const scriptName of DANGEROUS_LIFECYCLE_SCRIPTS) {
       if (scripts[scriptName]) {
         const scriptValue = scripts[scriptName];
@@ -29,42 +28,54 @@ export const supplyChainRule: Rule = {
 
         findings.push({
           id: makeFindingId(`supply-chain.lifecycle-${scriptName}`, 'package.json', 0),
+          ruleId: `supply-chain.lifecycle-${scriptName}`,
           title: `Lifecycle Script: ${scriptName}`,
           severity: isSuspicious ? 'high' : 'medium',
           confidence: isSuspicious ? 'high' : 'low',
           owasp: ['A03 Software Supply Chain Failures'],
+          cwe: ['CWE-506'],
           category: 'Supply Chain',
           file: 'package.json',
-          evidence: `"${scriptName}": "${scriptValue}"`,
+          evidence: {
+            snippet: `"${scriptName}": "${scriptValue}"`,
+            reason: isSuspicious
+              ? `Lifecycle script "${scriptName}" contains suspicious shell commands`
+              : `Lifecycle script "${scriptName}" runs automatically on npm install`,
+          },
           impact: isSuspicious
             ? 'This lifecycle script runs automatically on install and contains suspicious commands that may execute malicious code.'
             : 'Lifecycle scripts run automatically on npm install. Malicious packages can exploit this to run code on developer machines.',
           recommendation: isSuspicious
             ? 'Audit this lifecycle script carefully. Consider using --ignore-scripts during installs.'
             : 'Audit this lifecycle script to ensure it only performs expected operations.',
+          tags: ['lifecycle-script', 'supply-chain', 'npm'],
         });
       }
     }
 
-    // Wildcard dependency versions
     for (const [name, version] of Object.entries(allDeps)) {
       if (version === '*' || version === 'x' || version === 'latest') {
         findings.push({
           id: makeFindingId('supply-chain.wildcard-version', 'package.json', 0),
+          ruleId: 'supply-chain.wildcard-version',
           title: `Wildcard Dependency Version: ${name}`,
           severity: 'medium',
           confidence: 'high',
           owasp: ['A03 Software Supply Chain Failures'],
+          cwe: ['CWE-1104'],
           category: 'Supply Chain',
           file: 'package.json',
-          evidence: `"${name}": "${version}"`,
+          evidence: {
+            snippet: `"${name}": "${version}"`,
+            reason: `Package "${name}" uses wildcard version "${version}" — any version can be installed`,
+          },
           impact: 'Wildcard versions allow any version of the package to be installed, including ones with known vulnerabilities or malicious code.',
           recommendation: `Pin "${name}" to a specific version or use a conservative semver range like "^x.y.z".`,
+          tags: ['dependency', 'semver', 'supply-chain'],
         });
       }
     }
 
-    // Check for missing lockfile
     const hasLockfile = context.files.some(f => {
       const base = f.relativePath.split('/').pop() ?? '';
       return ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lockb', 'bun.lock'].includes(base);
@@ -73,15 +84,20 @@ export const supplyChainRule: Rule = {
     if (!hasLockfile) {
       findings.push({
         id: makeFindingId('supply-chain.missing-lockfile', 'package.json', 0),
+        ruleId: 'supply-chain.missing-lockfile',
         title: 'Missing Dependency Lockfile',
         severity: 'medium',
         confidence: 'high',
         owasp: ['A03 Software Supply Chain Failures'],
+        cwe: ['CWE-1104'],
         category: 'Supply Chain',
         file: 'package.json',
-        evidence: 'No lockfile found (package-lock.json, pnpm-lock.yaml, yarn.lock)',
+        evidence: {
+          reason: 'No lockfile found (package-lock.json, pnpm-lock.yaml, yarn.lock)',
+        },
         impact: 'Without a lockfile, dependency resolution is non-deterministic and can install unexpected versions.',
         recommendation: 'Commit a lockfile to version control. Run pnpm install / npm install / yarn to generate one.',
+        tags: ['lockfile', 'dependency', 'supply-chain'],
       });
     }
 

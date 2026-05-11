@@ -8,6 +8,8 @@ interface InjectionPattern {
   severity: 'critical' | 'high' | 'medium';
   confidence: 'high' | 'medium' | 'low';
   owasp: string[];
+  cwe: string[];
+  tags: string[];
   impact: string;
   recommendation: string;
   skip?: string[];
@@ -21,6 +23,8 @@ const INJECTION_PATTERNS: InjectionPattern[] = [
     severity: 'high',
     confidence: 'medium',
     owasp: ['A05 Injection'],
+    cwe: ['CWE-79'],
+    tags: ['xss', 'react', 'dom'],
     impact: 'XSS attacks can execute malicious scripts in users\' browsers via unescaped HTML.',
     recommendation: 'Avoid dangerouslySetInnerHTML. Use DOMPurify to sanitize HTML if rendering is required.',
   },
@@ -31,6 +35,8 @@ const INJECTION_PATTERNS: InjectionPattern[] = [
     severity: 'high',
     confidence: 'medium',
     owasp: ['A05 Injection'],
+    cwe: ['CWE-79'],
+    tags: ['xss', 'dom'],
     impact: 'XSS attacks through unsanitized HTML injection into the DOM.',
     recommendation: 'Use textContent for plain text. Sanitize with DOMPurify before assigning innerHTML.',
   },
@@ -41,6 +47,8 @@ const INJECTION_PATTERNS: InjectionPattern[] = [
     severity: 'high',
     confidence: 'high',
     owasp: ['A05 Injection'],
+    cwe: ['CWE-79'],
+    tags: ['xss', 'dom'],
     impact: 'document.write can be exploited for XSS and also blocks page rendering.',
     recommendation: 'Replace with safe DOM manipulation APIs (createElement, appendChild, textContent).',
   },
@@ -51,6 +59,8 @@ const INJECTION_PATTERNS: InjectionPattern[] = [
     severity: 'high',
     confidence: 'high',
     owasp: ['A05 Injection'],
+    cwe: ['CWE-78', 'CWE-79'],
+    tags: ['code-injection', 'eval'],
     impact: 'Code injection and XSS attacks via dynamic code execution.',
     recommendation: 'Never use eval() or new Function() with untrusted input. Redesign logic using safe alternatives.',
   },
@@ -61,6 +71,8 @@ const INJECTION_PATTERNS: InjectionPattern[] = [
     severity: 'medium',
     confidence: 'high',
     owasp: ['A05 Injection'],
+    cwe: ['CWE-79'],
+    tags: ['eval', 'dom'],
     impact: 'String arguments to setTimeout/setInterval are evaluated via eval().',
     recommendation: 'Pass a function reference instead of a string: setTimeout(() => fn(), delay).',
   },
@@ -71,6 +83,8 @@ const INJECTION_PATTERNS: InjectionPattern[] = [
     severity: 'critical',
     confidence: 'high',
     owasp: ['A05 Injection'],
+    cwe: ['CWE-89'],
+    tags: ['sql-injection', 'prisma', 'database'],
     impact: 'SQL injection attacks enabling data exfiltration, manipulation, or database destruction.',
     recommendation: 'Use Prisma.$queryRaw with tagged template literals, or use parameterized Prisma client methods.',
   },
@@ -81,6 +95,8 @@ const INJECTION_PATTERNS: InjectionPattern[] = [
     severity: 'high',
     confidence: 'medium',
     owasp: ['A05 Injection'],
+    cwe: ['CWE-89'],
+    tags: ['sql-injection', 'database'],
     impact: 'SQL injection via user-controlled input concatenated into queries.',
     recommendation: 'Use parameterized queries or an ORM. Never concatenate user input into SQL strings.',
   },
@@ -91,6 +107,8 @@ const INJECTION_PATTERNS: InjectionPattern[] = [
     severity: 'critical',
     confidence: 'medium',
     owasp: ['A05 Injection'],
+    cwe: ['CWE-78'],
+    tags: ['command-injection', 'rce', 'shell'],
     impact: 'Command injection enabling arbitrary shell command execution on the server.',
     recommendation: 'Use execFile() with an array of arguments instead. Never pass user input to exec().',
     skip: ['node_modules', '.git', 'dist', 'build'],
@@ -122,16 +140,22 @@ export const injectionRule: Rule = {
 
           findings.push({
             id: makeFindingId(p.id, file.relativePath, i + 1),
+            ruleId: p.id,
             title: p.name,
             severity: p.severity,
             confidence: p.confidence,
             owasp: p.owasp,
+            cwe: p.cwe,
             category: 'Injection',
             file: file.relativePath,
             line: i + 1,
-            evidence: truncate(line),
+            evidence: {
+              snippet: truncate(line),
+              reason: `${p.name} pattern matched`,
+            },
             impact: p.impact,
             recommendation: p.recommendation,
+            tags: p.tags,
           });
         }
       }

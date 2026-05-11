@@ -1,4 +1,4 @@
-import type { Finding, Severity, Confidence } from '@cybermat/shared';
+import type { Finding, FindingEvidence, Severity, Confidence } from '@cybermat/shared';
 import * as crypto from 'crypto';
 
 export function redactSecret(value: string): string {
@@ -9,8 +9,7 @@ export function redactSecret(value: string): string {
 
 export function redactLine(line: string, secretValue: string): string {
   if (!secretValue) return line;
-  const redacted = redactSecret(secretValue);
-  return line.replace(secretValue, redacted);
+  return line.replace(secretValue, redactSecret(secretValue));
 }
 
 export function truncate(str: string, max = 120): string {
@@ -23,34 +22,17 @@ export function makeFindingId(ruleId: string, relativePath: string, line: number
   return crypto.createHash('sha1').update(raw).digest('hex').slice(0, 12);
 }
 
-export function createFinding(
+export function generateFingerprint(
   ruleId: string,
-  title: string,
-  severity: Severity,
-  confidence: Confidence,
-  owasp: string[],
+  file: string,
+  line: number,
+  redactedEvidence: string,
   category: string,
-  evidence: string,
-  impact: string,
-  recommendation: string,
-  file?: string,
-  line?: number,
-  references?: string[],
-): Finding {
-  return {
-    id: makeFindingId(ruleId, file ?? 'global', line ?? 0),
-    title,
-    severity,
-    confidence,
-    owasp,
-    category,
-    evidence: truncate(evidence),
-    impact,
-    recommendation,
-    file,
-    line,
-    references,
-  };
+): string {
+  // Line bucket (groups of 5) makes fingerprint resilient to minor line shifts
+  const lineBucket = Math.floor(line / 5) * 5;
+  const raw = `${ruleId}:${file}:${lineBucket}:${redactedEvidence}:${category}`;
+  return crypto.createHash('sha1').update(raw).digest('hex').slice(0, 16);
 }
 
 export function isClientFile(relativePath: string, content: string): boolean {
@@ -66,4 +48,25 @@ export function isServerFile(relativePath: string, content: string): boolean {
   const inServerDir = serverPatterns.some(p => relativePath.includes(p));
   const hasUseServer = content.includes('"use server"') || content.includes("'use server'");
   return inServerDir || hasUseServer;
+}
+
+export function evidenceFromLine(line: string, reason?: string): FindingEvidence {
+  return {
+    snippet: truncate(line),
+    reason: reason ?? truncate(line),
+  };
+}
+
+export function evidenceFromSecret(line: string, secretValue: string, reason?: string): FindingEvidence {
+  const redactedSnippet = truncate(redactLine(line, secretValue));
+  const redactedMatch = redactSecret(secretValue);
+  return {
+    redactedSnippet,
+    redactedMatch,
+    reason: reason ?? redactedSnippet,
+  };
+}
+
+export function evidenceFromMessage(reason: string): FindingEvidence {
+  return { reason };
 }

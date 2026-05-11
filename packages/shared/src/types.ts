@@ -1,20 +1,35 @@
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type Confidence = 'high' | 'medium' | 'low';
+export type ScannerLayer = 'code' | 'runtime' | 'authz';
+
+export interface FindingEvidence {
+  snippet?: string;
+  redactedSnippet?: string;
+  match?: string;
+  redactedMatch?: string;
+  reason: string;
+}
 
 export interface Finding {
   id: string;
+  ruleId: string;
   title: string;
   severity: Severity;
   confidence: Confidence;
   owasp: string[];
   category: string;
+  cwe?: string[];
   file?: string;
   line?: number;
+  column?: number;
   route?: string;
-  evidence: string;
+  evidence: FindingEvidence;
   impact: string;
   recommendation: string;
+  fixExample?: string;
   references?: string[];
+  tags: string[];
+  layer?: ScannerLayer;
 }
 
 export interface ScannedFile {

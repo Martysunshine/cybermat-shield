@@ -41,7 +41,11 @@ function printFinding(f: Finding, index: number): void {
   }
 
   if (f.evidence) {
-    console.log(`     ${chalk.gray('Evidence:')} ${chalk.yellow(f.evidence)}`);
+    const ev = f.evidence.redactedSnippet ?? f.evidence.snippet ?? f.evidence.reason;
+    console.log(`     ${chalk.gray('Evidence:')} ${chalk.yellow(ev)}`);
+    if (f.evidence.redactedMatch) {
+      console.log(`     ${chalk.gray('Match:')}    ${chalk.yellow(f.evidence.redactedMatch)}`);
+    }
   }
 
   console.log(`     ${chalk.gray('Fix:')} ${f.recommendation.slice(0, 100)}${f.recommendation.length > 100 ? '...' : ''}`);

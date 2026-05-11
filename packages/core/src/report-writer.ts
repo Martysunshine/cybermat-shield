@@ -35,11 +35,26 @@ function scoreLabel(score: number): string {
   return 'Critical';
 }
 
+function evidenceText(f: Finding): string {
+  // Priority: redacted snippet > plain snippet > reason
+  return f.evidence.redactedSnippet ?? f.evidence.snippet ?? f.evidence.reason;
+}
+
 function renderFindingCards(findings: Finding[], severity: Severity): string {
   const filtered = findings.filter(f => f.severity === severity);
   if (filtered.length === 0) return '';
 
-  const cards = filtered.map(f => `
+  const cards = filtered.map(f => {
+    const evText = evidenceText(f);
+    const hasMatch = !!f.evidence.redactedMatch;
+    const cweHtml = f.cwe && f.cwe.length > 0
+      ? `<div class="owasp-tags">${f.cwe.map(c => `<span class="owasp-tag cwe-tag">${escapeHtml(c)}</span>`).join('')}</div>`
+      : '';
+    const tagsHtml = f.tags && f.tags.length > 0
+      ? `<div class="tag-row">${f.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>`
+      : '';
+
+    return `
     <div class="finding-card" data-severity="${f.severity}">
       <div class="finding-header">
         <span class="severity-badge" style="background:${SEVERITY_COLOR[f.severity]}20;color:${SEVERITY_COLOR[f.severity]};border:1px solid ${SEVERITY_COLOR[f.severity]}40">
@@ -50,9 +65,12 @@ function renderFindingCards(findings: Finding[], severity: Severity): string {
       </div>
       ${f.file ? `<div class="finding-location">📄 ${escapeHtml(f.file)}${f.line ? `:${f.line}` : ''}</div>` : ''}
       ${f.owasp.length > 0 ? `<div class="owasp-tags">${f.owasp.map(o => `<span class="owasp-tag">${escapeHtml(o)}</span>`).join('')}</div>` : ''}
+      ${cweHtml}
+      ${tagsHtml}
       <div class="finding-section">
         <div class="section-label">Evidence</div>
-        <code class="evidence-code">${escapeHtml(f.evidence)}</code>
+        <code class="evidence-code">${escapeHtml(evText)}</code>
+        ${hasMatch ? `<div class="redacted-match">Matched: <code>${escapeHtml(f.evidence.redactedMatch!)}</code></div>` : ''}
       </div>
       <div class="finding-section">
         <div class="section-label">Impact</div>
@@ -63,7 +81,8 @@ function renderFindingCards(findings: Finding[], severity: Severity): string {
         <p>${escapeHtml(f.recommendation)}</p>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   return `
     <div class="severity-group">
@@ -147,6 +166,11 @@ export function generateHtml(report: ScanReport): string {
     .finding-section p { font-size: 0.875rem; color: var(--muted); }
     .owasp-list { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; }
     .owasp-list li { background: #1a2e1a; color: #86efac; border: 1px solid #16a34a30; padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.8rem; }
+    .cwe-tag { background: #1e1a2e; color: #c4b5fd; border-color: #7c3aed30 !important; }
+    .tag-row { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.5rem 0; }
+    .tag { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); padding: 0.1rem 0.45rem; border-radius: 4px; font-size: 0.68rem; }
+    .redacted-match { margin-top: 0.4rem; font-size: 0.8rem; color: var(--muted); }
+    .redacted-match code { color: #fbbf24; font-family: 'Courier New', monospace; }
     .no-findings { text-align: center; padding: 3rem; color: var(--muted); }
     footer { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 3rem; }
   </style>

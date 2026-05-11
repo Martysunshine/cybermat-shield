@@ -1,7 +1,6 @@
-import type { Rule, Finding, RuleContext, ScannedFile } from '@cybermat/shared';
+import type { Rule, Finding, RuleContext } from '@cybermat/shared';
 import { makeFindingId } from '../utils';
 
-// Patterns that indicate auth is present in a route file
 const AUTH_GUARD_PATTERNS = [
   /auth\s*\(\s*\)/,
   /getServerSession\s*\(/,
@@ -65,7 +64,6 @@ export const authRule: Rule = {
   run: async (context: RuleContext): Promise<Finding[]> => {
     const findings: Finding[] = [];
 
-    // Check for missing middleware.ts in Next.js projects
     const isNextJs = context.detectedStack.frameworks.includes('Next.js');
     if (isNextJs) {
       const hasMiddleware = context.files.some(f =>
@@ -76,19 +74,23 @@ export const authRule: Rule = {
       if (!hasMiddleware) {
         findings.push({
           id: makeFindingId('auth.missing-middleware', 'root', 0),
+          ruleId: 'auth.missing-middleware',
           title: 'Missing Next.js Middleware',
           severity: 'medium',
           confidence: 'medium',
           owasp: ['A01 Broken Access Control', 'A07 Authentication Failures'],
+          cwe: ['CWE-284'],
           category: 'Authentication',
-          evidence: 'No middleware.ts found in Next.js project',
+          evidence: {
+            reason: 'No middleware.ts found in Next.js project. Authentication is not enforced at the routing layer.',
+          },
           impact: 'Without middleware, authentication is not enforced at the routing layer, making it easy to miss protecting routes.',
           recommendation: 'Add middleware.ts to enforce authentication at the edge. Use Clerk, NextAuth, or custom JWT validation.',
+          tags: ['nextjs', 'middleware', 'auth'],
         });
       }
     }
 
-    // Check API route files for missing auth
     const routeFiles = context.files.filter(f => {
       const ext = f.extension;
       if (!['.ts', '.js'].includes(ext)) return false;
@@ -106,45 +108,60 @@ export const authRule: Rule = {
       if (isAdmin && !hasAuth) {
         findings.push({
           id: makeFindingId('auth.admin-route-no-auth', file.relativePath, 0),
+          ruleId: 'auth.admin-route-no-auth',
           title: 'Admin Route Without Authentication Check',
           severity: 'critical',
           confidence: 'medium',
           owasp: ['A01 Broken Access Control', 'A07 Authentication Failures'],
+          cwe: ['CWE-284', 'CWE-306'],
           category: 'Authentication',
           file: file.relativePath,
-          evidence: `Admin route with no detectable auth guard: ${file.relativePath}`,
+          evidence: {
+            reason: `Admin route with no detectable auth guard: ${file.relativePath}`,
+          },
           impact: 'Unauthenticated users may access administrative functionality.',
           recommendation: 'Add authentication and role/admin check at the start of every admin route handler.',
+          tags: ['admin', 'auth', 'access-control'],
         });
       } else if (isProtected && !hasAuth) {
         findings.push({
           id: makeFindingId('auth.protected-route-no-auth', file.relativePath, 0),
+          ruleId: 'auth.protected-route-no-auth',
           title: 'Protected-Looking Route Without Authentication',
           severity: 'high',
           confidence: 'low',
           owasp: ['A01 Broken Access Control', 'A07 Authentication Failures'],
+          cwe: ['CWE-284'],
           category: 'Authentication',
           file: file.relativePath,
-          evidence: `Route path suggests auth is required but no guard found: ${file.relativePath}`,
+          evidence: {
+            reason: `Route path suggests auth is required but no guard found: ${file.relativePath}`,
+          },
           impact: 'Sensitive functionality may be accessible without authentication.',
           recommendation: 'Verify authentication is enforced. Add an explicit auth check at the top of the route handler.',
+          tags: ['auth', 'access-control'],
         });
       } else if (isAdmin && hasAuth && !hasRoleCheck(file.content)) {
         findings.push({
           id: makeFindingId('auth.admin-route-no-role-check', file.relativePath, 0),
+          ruleId: 'auth.admin-route-no-role-check',
           title: 'Admin Route Missing Role Check',
           severity: 'high',
           confidence: 'low',
           owasp: ['A01 Broken Access Control'],
+          cwe: ['CWE-284', 'CWE-285'],
           category: 'Authentication',
           file: file.relativePath,
-          evidence: `Admin route authenticated but no role/admin check detected: ${file.relativePath}`,
+          evidence: {
+            reason: `Admin route authenticated but no role/admin check detected: ${file.relativePath}`,
+          },
           impact: 'Any authenticated user (not just admins) may access admin functionality.',
           recommendation: 'Add a role check after authentication: verify the user has an admin role before proceeding.',
+          tags: ['admin', 'rbac', 'access-control'],
         });
       }
 
-      // Flag user_id accepted from request body (IDOR risk)
+      // Flag user_id from request body (IDOR risk)
       const lines = file.content.split('\n');
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -152,16 +169,22 @@ export const authRule: Rule = {
             /(?:user_id|userId|ownerId)\s*[:=].*(?:req\.body|body\.|params\.|query\.)/i.test(line)) {
           findings.push({
             id: makeFindingId('auth.user-id-from-body', file.relativePath, i + 1),
+            ruleId: 'auth.user-id-from-body',
             title: 'user_id Accepted from Request Body',
             severity: 'high',
             confidence: 'medium',
             owasp: ['A01 Broken Access Control'],
+            cwe: ['CWE-639'],
             category: 'Authentication',
             file: file.relativePath,
             line: i + 1,
-            evidence: line.trim(),
+            evidence: {
+              snippet: line.trim(),
+              reason: 'user_id or ownerId read from client-controlled request body',
+            },
             impact: 'IDOR/BOLA vulnerability: attackers can manipulate user IDs to access or modify other users\' data.',
             recommendation: 'Never trust user_id from the client. Extract it from the authenticated session server-side.',
+            tags: ['idor', 'bola', 'auth', 'access-control'],
           });
         }
       }
