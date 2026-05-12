@@ -1,5 +1,6 @@
 import type { ScannerEngine, ScanContext, Finding } from '@cybermat/shared';
 import { scanFilesForSecrets, secretFindingToFinding } from '../secrets-engine';
+import { scanFilesForPatterns, multilangFindingToFinding } from '../multilang-engine';
 
 /**
  * Code Scanner Engine — Layer 1
@@ -9,7 +10,8 @@ import { scanFilesForSecrets, secretFindingToFinding } from '../secrets-engine';
  * starting a browser or making network requests.
  *
  * Currently active sub-engines:
- *   - secrets-engine (66 detectors)
+ *   - secrets-engine (60+ detectors)
+ *   - multilang-engine (dangerous patterns for Docker, Shell, Terraform, K8s, Python, PHP, CI/CD)
  *
  * Planned sub-engines (Phase 4):
  *   - static-code-engine (AST-based sink/source detection)
@@ -21,8 +23,11 @@ export const codeScannerEngine: ScannerEngine = {
   id: 'code-scanner',
   name: 'Code Scanner',
   layer: 'code',
-  supportedLanguages: ['TypeScript', 'JavaScript'],
-  supportedFrameworks: ['Next.js', 'React', 'Express', 'Fastify', 'NestJS'],
+  supportedLanguages: [
+    'TypeScript', 'JavaScript', 'Python', 'Go', 'Java', 'PHP', 'Ruby',
+    'Rust', 'Shell', 'Dockerfile', 'Terraform', 'YAML',
+  ],
+  supportedFrameworks: ['Next.js', 'React', 'Express', 'Fastify', 'NestJS', 'Docker', 'Kubernetes'],
 
   async run(context: ScanContext): Promise<Finding[]> {
     const secretFindings = scanFilesForSecrets(context.files).map(sf => ({
@@ -30,7 +35,11 @@ export const codeScannerEngine: ScannerEngine = {
       layer: 'code' as const,
     }));
 
-    // Phase 4: add static-code, dependency, config, ai-security engines here
-    return secretFindings;
+    const patternFindings = scanFilesForPatterns(context.files).map(mf => ({
+      ...multilangFindingToFinding(mf),
+      layer: 'code' as const,
+    }));
+
+    return [...secretFindings, ...patternFindings];
   },
 };

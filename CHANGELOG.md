@@ -2,6 +2,38 @@
 
 All notable changes to CyberMat Shield are documented here.
 
+## [0.2.0] — 2026-05-12
+
+### Added
+
+**Multi-language Coverage Expansion**
+- File inventory expanded from ~20 JS/TS extensions to 60+ extensions across 7 language groups: web, backend, config, infrastructure, database, script, and documentation
+- `SCANNABLE_FILENAMES` — 50+ exact-filename matches for extension-less files (`Dockerfile`, `Makefile`, `Jenkinsfile`, `go.mod`, `Cargo.toml`, `requirements.txt`, `firestore.rules`, `nginx.conf`, CI/CD configs, and more)
+- `language`, `fileKind`, and `ecosystem` fields on every `ScannedFile` — populated at inventory time, available to all engines
+- `language-classifier.ts` — pure lookup-table classifier: `detectLanguage`, `detectFileKind`, `detectEcosystem`
+- CI/CD path detection for GitHub Actions (`.github/workflows/`), CircleCI, GitLab CI, Azure Pipelines, and Bitbucket Pipelines
+- Env file wildcard: any basename starting with `.env` (`.env.local`, `.env.staging`, `.env.example`, etc.)
+- Binary-file safety: null-byte detection + non-printable ratio heuristic (>30% of first 512 bytes)
+- Symlink safety: symlinked directories are detected via `lstat` and not followed
+- `skipped` and `skippedByReason` counts on `FileInventoryResult` (`binary`, `too_large`, `ignored_file`, `symlink_skipped`, `read_error`)
+- Explicit `JS_TS_EXTENSIONS` guard in `ast-analyzer.ts` — non-JS/TS files can never enter the JS parser
+- `multilang-engine` — 27 dangerous pattern detectors across Docker (6), Shell (5), Terraform (3), Kubernetes (5), Python (4), PHP (3), and CI/CD (2)
+- `scanFilesForPatterns` wired into the code scanner — pattern findings appear alongside secret findings in all reports
+- 166 new tests in `@cybermat/analyzers` (language-classifier: 57, file-inventory: 109)
+- 29 new tests in `@cybermat/engines` for multi-language pattern detection
+
+**Secrets Engine Hardening**
+- Shannon entropy scoring for secret candidates — filters low-entropy false positives (dictionary words, template placeholders)
+- Post-detection validators per detector family — format-aware validation for AWS keys, JWT tokens, connection strings, RSA headers
+- Stable content-based finding fingerprints (SHA-256 of `ruleId:normalizedPath:normalizedEvidence`) — resistant to line-number drift on refactors
+- `fingerprint.ts` module in `@cybermat/core` — `makeFindingId`, `normalizeEvidence`
+
+### Changed
+- `@cybermat/analyzers`: `TS_EXTENSIONS` renamed to `JS_TS_EXTENSIONS` (explicit safety invariant)
+- `FileInventoryResult`: `ignored` field retained; `skipped` and `skippedByReason` added alongside it
+
+---
+
 ## [0.1.0] — 2025-05-12
 
 ### Added

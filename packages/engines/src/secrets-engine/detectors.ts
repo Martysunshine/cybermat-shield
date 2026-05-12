@@ -15,6 +15,16 @@ export interface SecretDetector {
   recommendation: string;
   /** Lower confidence for generic patterns prone to false positives */
   confidence?: 'high' | 'medium' | 'low';
+  /** Require Shannon entropy check — useful for generic API key patterns */
+  entropyRequired?: boolean;
+  /** Minimum Shannon entropy for value to be considered real (default 3.5) */
+  minEntropy?: number;
+  /** Known false-positive patterns — matched values are downgraded to low confidence */
+  falsePositivePatterns?: RegExp[];
+  /** Variable name hints for context-aware detection */
+  variableNameHints?: string[];
+  /** Tag findings from example/test files with 'possible_test_fixture' but do not skip */
+  allowInExampleFiles?: boolean;
 }
 
 export const SECRET_DETECTORS: SecretDetector[] = [
@@ -23,13 +33,15 @@ export const SECRET_DETECTORS: SecretDetector[] = [
     id: 'secrets.aws-access-key-id',
     name: 'AWS Access Key ID',
     pattern: /(?:AWS_ACCESS_KEY_ID\s*[=:]\s*["']?|(["']))(AKIA[A-Z0-9]{16})\1?/,
-    valueGroup: 3,
+    valueGroup: 2,
     baseSeverity: 'critical',
     cwe: ['CWE-798'],
     owasp: ['A04 Cryptographic Failures'],
     tags: ['aws', 'cloud', 'iam'],
     impact: 'Full AWS account access including EC2, S3, RDS, Lambda and billing.',
     recommendation: 'Rotate the AWS access key immediately in IAM. Use IAM roles instead of long-lived keys.',
+    variableNameHints: ['AWS_ACCESS_KEY_ID', 'aws_access_key'],
+    falsePositivePatterns: [/^AKIAIOSFODNN7EXAMPLE$/],
   },
   {
     id: 'secrets.aws-secret-access-key',
@@ -116,6 +128,8 @@ export const SECRET_DETECTORS: SecretDetector[] = [
     tags: ['jwt', 'auth', 'session'],
     impact: 'Token forgery allowing full account impersonation.',
     recommendation: 'Rotate the secret. Use openssl rand -base64 32 to generate a strong value.',
+    entropyRequired: true,
+    minEntropy: 3.5,
   },
 
   // ─── Databases ────────────────────────────────────────────────────────────
@@ -233,6 +247,7 @@ export const SECRET_DETECTORS: SecretDetector[] = [
     tags: ['openai', 'ai', 'llm'],
     impact: 'Unauthorized API usage, unexpected billing, and data exposure via API calls.',
     recommendation: 'Rotate in OpenAI dashboard. Use a backend proxy; never call OpenAI directly from client code.',
+    falsePositivePatterns: [/^sk-your[_-]/i, /^sk-example/i, /^sk-test-key/i],
   },
   {
     id: 'secrets.anthropic-api-key',
@@ -246,6 +261,7 @@ export const SECRET_DETECTORS: SecretDetector[] = [
     tags: ['anthropic', 'ai', 'llm'],
     impact: 'Unauthorized Anthropic API usage and unexpected billing.',
     recommendation: 'Rotate in Anthropic console. Store in server-only environment variables.',
+    falsePositivePatterns: [/^sk-ant-your[_-]/i, /^sk-ant-example/i],
   },
   {
     id: 'secrets.google-api-key',

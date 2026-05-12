@@ -94,14 +94,15 @@ const SOURCE_PATTERNS: SourcePattern[] = [
   { re: /req\.file|req\.files|formData\.get\s*\(['"]file/, name: 'file upload', sourceType: 'file-upload' },
 ];
 
-const TS_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
+/** Extensions safe to feed into the JS/TS parser. Non-JS files must never enter this path. */
+const JS_TS_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 
 export function analyzeAst(files: ScannedFile[]): AstAnalysisResult {
   const sinks: DangerousCall[] = [];
   const sources: UserInputSource[] = [];
 
   for (const file of files) {
-    if (!TS_EXTENSIONS.has(file.extension)) continue;
+    if (!JS_TS_EXTENSIONS.has(file.extension)) continue;
 
     const lines = file.content.split('\n');
 

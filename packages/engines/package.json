@@ -6,6 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc --build",
+    "test": "npx tsx --test src/secrets-engine/__tests__/secrets.test.ts src/multilang-engine/__tests__/multilang.test.ts",
     "clean": "rimraf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {

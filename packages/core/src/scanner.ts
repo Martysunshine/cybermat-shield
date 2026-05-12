@@ -4,12 +4,14 @@ import type {
   Rule, ScanReport, ScanOptions, ScanSummary, Finding,
   ScannerConfig, DetectedStack, Severity, ScannerLayer, ScanMetadata,
   RouteInfo, FileClassification, ParsedFile,
+  RuleExecutionResult, EngineHealth,
 } from '@cybermat/shared';
 import { DEFAULT_CONFIG } from '@cybermat/shared';
 import { buildFileInventory } from './file-inventory';
 import { detectStack } from './stack-detector';
 import { writeReports } from './report-writer';
 import { loadIgnoreRules, applyIgnoreRules } from './ignore-loader';
+import { createFindingFingerprint } from './fingerprint';
 import { classifyFiles } from '@cybermat/analyzers';
 import { discoverRoutes } from '@cybermat/analyzers';
 import { buildImportGraph } from '@cybermat/analyzers';
@@ -168,6 +170,8 @@ export async function runScan(
   const config: ScannerConfig = {
     ...DEFAULT_CONFIG,
     outputDir,
+    strictRuleFailures: options.strictRuleFailures,
+    debug: options.debug,
   };
 
   // ── Pipeline ──────────────────────────────────────────────────────────────
@@ -213,13 +217,53 @@ export async function runScan(
     parsedFiles,
   };
 
-  const ruleResults = await Promise.all(
-    rules.map(r =>
-      r.run(ruleContext)
-        .then(findings => findings.map(f => tagFindingLayer(f, r.layer)))
-        .catch(() => [] as Finding[])
-    )
+  const scanStart = performance.now();
+  const executionResults: RuleExecutionResult[] = await Promise.all(
+    rules.map(async (r): Promise<RuleExecutionResult> => {
+      const ruleStart = performance.now();
+      try {
+        const findings = await r.run(ruleContext);
+        return {
+          ruleId: r.id,
+          ruleName: r.name,
+          status: 'success',
+          findings: findings.map(f => tagFindingLayer(f, r.layer)),
+          durationMs: Math.round(performance.now() - ruleStart),
+          layer: r.layer,
+        };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          ruleId: r.id,
+          ruleName: r.name,
+          status: 'failed',
+          findings: [],
+          error: message,
+          durationMs: Math.round(performance.now() - ruleStart),
+          layer: r.layer,
+        };
+      }
+    })
   );
+  const scanDurationMs = Math.round(performance.now() - scanStart);
+
+  const engineHealth: EngineHealth = {
+    rulesTotal: executionResults.length,
+    rulesSucceeded: executionResults.filter(r => r.status === 'success').length,
+    rulesFailed: executionResults.filter(r => r.status === 'failed').length,
+    rulesSkipped: executionResults.filter(r => r.status === 'skipped').length,
+    failedRules: executionResults
+      .filter(r => r.status === 'failed')
+      .map(r => ({ ruleId: r.ruleId, error: r.error ?? 'unknown error' })),
+    durationMs: scanDurationMs,
+  };
+
+  if (config.strictRuleFailures && engineHealth.rulesFailed > 0) {
+    const ids = engineHealth.failedRules.map(r => r.ruleId).join(', ');
+    throw new Error(`Strict mode: ${engineHealth.rulesFailed} rule(s) failed internally: ${ids}`);
+  }
+
+  const ruleResults = executionResults.map(r => r.findings);
 
   // 10. Normalize, deduplicate, filter
   let allFindings = deduplicateFindings(ruleResults.flat());
@@ -239,7 +283,10 @@ export async function runScan(
     }
   }
 
-  const filteredFindings = applyIgnoreRules(allFindings, ignoreRules);
+  let filteredFindings = applyIgnoreRules(allFindings, ignoreRules);
+
+  // Assign stable content-based fingerprints to every finding
+  filteredFindings = filteredFindings.map(f => f.fingerprint ? f : { ...f, fingerprint: createFindingFingerprint(f) });
 
   // 11. Score & report
   const timestamp = new Date().toISOString();
@@ -248,6 +295,11 @@ export async function runScan(
     scannedPath: absolutePath,
     layers: ['code'],
     version: SCANNER_VERSION,
+    scannerVersion: SCANNER_VERSION,
+    nodeVersion: process.version,
+    platform: process.platform,
+    scanDurationMs,
+    engineHealth,
   };
 
   const report: ScanReport = {

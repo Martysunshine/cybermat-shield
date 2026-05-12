@@ -9,5 +9,6 @@ dist/
 *.tsbuildinfo
 .next/
 
-# Internal build specs — kept locally only
+# Internal build specs and AI session data — kept locally only
 readmeprompt*.md
+.claude/

@@ -68,6 +68,10 @@ export interface Finding {
   tags: string[];
   /** Populated by the scanner orchestrator if omitted by the rule; defaults to 'code' */
   layer?: ScannerLayer;
+  /** Content-based stable identity used for baseline comparison (does not depend on line number) */
+  fingerprint?: string;
+  /** Secondary fingerprint incorporating file + line bucket for soft-matching */
+  locationFingerprint?: string;
   // Runtime-specific fields (populated by runtime scanner)
   url?: string;
   method?: string;
@@ -151,6 +155,12 @@ export interface ScannedFile {
   sizeBytes: number;
   content: string;
   sha256?: string;
+  /** Detected language: typescript | python | go | dockerfile | terraform | yaml | shell | ... */
+  language?: string;
+  /** File kind: source | config | env | ci_cd | docker | infrastructure | dependency_manifest | lockfile | database | documentation | script | certificate_or_key | framework_config | security_rules */
+  fileKind?: string;
+  /** Ecosystem: node | python | go | java | rust | docker | terraform | github-actions | firebase | ... */
+  ecosystem?: string;
 }
 
 export interface DetectedStack {
@@ -170,6 +180,10 @@ export interface ScannerConfig {
   severityThreshold?: Severity;
   outputDir: string;
   rules?: RulesConfig;
+  /** Exit with error if any rule throws internally during execution */
+  strictRuleFailures?: boolean;
+  /** Enable verbose debug output (per-rule timing, full error messages) */
+  debug?: boolean;
 }
 
 export interface RuleContext {
@@ -211,12 +225,42 @@ export interface ScanSummary {
   total: number;
 }
 
+// ─── Diagnostics Types ────────────────────────────────────────────────────────
+
+export type RuleExecutionStatus = 'success' | 'failed' | 'skipped';
+
+export interface RuleExecutionResult {
+  ruleId: string;
+  ruleName?: string;
+  status: RuleExecutionStatus;
+  findings: Finding[];
+  /** Sanitized error message (no stack trace) */
+  error?: string;
+  durationMs: number;
+  engine?: string;
+  layer?: ScannerLayer;
+}
+
+export interface EngineHealth {
+  rulesTotal: number;
+  rulesSucceeded: number;
+  rulesFailed: number;
+  rulesSkipped: number;
+  failedRules: Array<{ ruleId: string; error: string }>;
+  durationMs: number;
+}
+
 export interface ScanMetadata {
   timestamp: string;
   scannedPath?: string;
   targetUrl?: string;
   layers: ScannerLayer[];
   version: string;
+  scannerVersion?: string;
+  nodeVersion?: string;
+  platform?: string;
+  scanDurationMs?: number;
+  engineHealth?: EngineHealth;
 }
 
 export type ScanMode = {
@@ -283,6 +327,8 @@ export interface ScanOptions {
   outputDir?: string;
   severityThreshold?: Severity;
   rulesConfig?: RulesConfig;
+  strictRuleFailures?: boolean;
+  debug?: boolean;
 }
 
 export const DEFAULT_CONFIG: ScannerConfig = {

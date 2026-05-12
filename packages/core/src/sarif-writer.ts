@@ -54,7 +54,10 @@ function findingToResult(f: Finding, baseDir?: string): SarifResult {
     message: {
       text: [f.title, f.evidence.reason, f.recommendation].filter(Boolean).join(' — '),
     },
-    partialFingerprints: { primaryLocationLineHash: f.id },
+    partialFingerprints: {
+      primaryLocationLineHash: f.id,
+      ...(f.fingerprint ? { 'findingFingerprint/v1': f.fingerprint } : {}),
+    },
     properties: {
       owasp: f.owasp,
       cwe: f.cwe ?? [],

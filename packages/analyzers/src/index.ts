@@ -1,4 +1,5 @@
 export * from './file-inventory';
+export * from './language-classifier';
 export * from './stack-detector';
 export * from './file-classifier';
 export * from './route-discovery';

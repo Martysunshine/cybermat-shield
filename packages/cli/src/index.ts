@@ -534,9 +534,12 @@ program
   .option('--fail-on <severity>', 'Exit 1 when findings at or above this severity exist (critical|high|medium|low|info|none)', 'high')
   .option('--baseline', 'Compare to .appsec/baseline.json and annotate new vs existing findings')
   .option('--ci', 'Exit code 5 if new findings compared to baseline (implies --baseline)')
+  .option('--strict-rules', 'Exit 2 if any rule fails internally during execution')
+  .option('--debug', 'Print per-rule timing and detailed internal diagnostics')
   .action(async (targetPath: string, opts: {
     json?: boolean; sarif?: boolean; markdown?: boolean;
     outputDir?: string; failOn?: string; baseline?: boolean; ci?: boolean;
+    strictRules?: boolean; debug?: boolean;
   }) => {
     printBanner();
 
@@ -552,6 +555,8 @@ program
     try {
       const report = await runScan(absolutePath, allRules, {
         outputDir: opts.outputDir,
+        strictRuleFailures: opts.strictRules,
+        debug: opts.debug,
       });
 
       // Output dir is relative to the scanned path (where JSON/HTML also go)
@@ -576,6 +581,27 @@ program
 
       printReport(report, diff);
 
+      // Engine health diagnostics warning
+      const engineHealth = report.metadata?.engineHealth;
+      if (engineHealth && engineHealth.rulesFailed > 0) {
+        console.log(chalk.yellow(`  ⚠  ${engineHealth.rulesFailed} rule(s) failed internally. Results may be incomplete. See .appsec/report.json diagnostics.`));
+        console.log('');
+        if (opts.debug) {
+          console.log(chalk.gray('  Failed rules:'));
+          engineHealth.failedRules.forEach(r => {
+            console.log(`    ${chalk.red('✗')} ${r.ruleId}: ${chalk.gray(r.error)}`);
+          });
+          console.log('');
+        }
+      }
+
+      // Debug: per-rule timing
+      if (opts.debug && report.metadata?.scanDurationMs !== undefined) {
+        console.log(chalk.gray(`  Scan duration: ${report.metadata.scanDurationMs}ms`));
+        console.log(chalk.gray(`  Rules executed: ${engineHealth?.rulesTotal ?? 0} (${engineHealth?.rulesSucceeded ?? 0} succeeded, ${engineHealth?.rulesFailed ?? 0} failed)`));
+        console.log('');
+      }
+
       // Write extra formats
       if (opts.sarif) {
         const sarifPath = path.join(outputDir, 'report.sarif');
@@ -591,6 +617,11 @@ program
       // Exit code logic
       const failOn = (opts.failOn ?? 'high') as Severity | 'none';
       const sevOrder = ['critical', 'high', 'medium', 'low', 'info'];
+
+      if (opts.strictRules && engineHealth && engineHealth.rulesFailed > 0) {
+        console.log(chalk.red(`  ✗  Strict mode: ${engineHealth.rulesFailed} rule(s) failed internally.`));
+        process.exit(2);
+      }
 
       if (opts.ci && diff && diff.summary.new > 0) {
         console.log(chalk.red(`  ✗  ${diff.summary.new} new finding(s) vs baseline. CI failed.`));
