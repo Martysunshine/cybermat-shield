@@ -14,7 +14,7 @@ If you find a security vulnerability in CyberMat Shield — such as a path trave
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, email: **security@cybermat.dev** (or open a [GitHub private security advisory](https://github.com/Martysunshine/cybermat-shield/security/advisories/new))
+Instead, reach out to me: **LinkedIn from my Github profile** (or open a [GitHub private security advisory](https://github.com/Martysunshine/cybermat-shield/security/advisories/new))
 
 Please include:
 - A description of the vulnerability
