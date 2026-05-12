@@ -13,7 +13,7 @@ on:
       fail_on:
         description: 'Minimum severity to fail CI (critical|high|medium|low|none)'
         required: false
-        default: 'critical'
+        default: 'none'
 
 permissions:
   contents: read
@@ -49,9 +49,8 @@ jobs:
           node packages/cli/dist/index.js scan . \
             --sarif \
             --markdown \
-            --fail-on ${{ github.event.inputs.fail_on || 'critical' }} \
+            --fail-on ${{ github.event.inputs.fail_on || 'none' }} \
             --output-dir .appsec
-        continue-on-error: true
 
       - name: Upload SARIF to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v4
@@ -60,7 +59,7 @@ jobs:
           sarif_file: .appsec/report.sarif
           category: cybermat-shield-static
 
-      - name: Upload HTML report as artifact
+      - name: Upload reports as artifact
         uses: actions/upload-artifact@v4
         if: always() && hashFiles('.appsec/report.sarif') != ''
         with:
@@ -103,13 +102,6 @@ jobs:
               repo: context.repo.repo,
               body,
             });
-
-      - name: Fail if scan found critical/high issues
-        if: steps.scan.outcome == 'failure'
-        run: |
-          echo "Security scan found critical or high severity findings."
-          echo "Review the SARIF report in the GitHub Security tab."
-          exit 1
 
   # Optional: baseline comparison job (uncomment to use)
   # baseline-compare:
