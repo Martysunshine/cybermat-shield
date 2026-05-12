@@ -128,7 +128,8 @@ function printReport(report: ScanReport, diff?: BaselineDiff): void {
   console.log('');
 
   const scoreColor = riskScore >= 70 ? chalk.green : riskScore >= 40 ? chalk.yellow : riskScore >= 20 ? chalk.red : chalk.bgRed.white;
-  console.log(`  ${chalk.gray('Risk Score:')} ${scoreColor.bold(String(riskScore))} ${chalk.gray('/ 100')}`);
+  const scoreLabel = riskScore >= 70 ? chalk.green('Secure') : riskScore >= 40 ? chalk.yellow('Low Risk') : riskScore >= 20 ? chalk.red('High Risk') : chalk.bgRed.white('Critical Risk');
+  console.log(`  ${chalk.gray('Risk Score:')} ${scoreColor.bold(String(riskScore))} ${chalk.gray('/ 100')}  ${scoreLabel}`);
 
   const summaryParts = [
     summary.critical > 0 ? chalk.red.bold(`Critical: ${summary.critical}`) : '',
