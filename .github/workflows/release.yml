@@ -33,4 +33,4 @@ jobs:
         run: pnpm build
 
       - name: Publish cybermat to npm
-        run: pnpm publish --filter cybermat --no-git-checks --access public
+        run: pnpm publish --filter cybermat --no-git-checks --access public --provenance
