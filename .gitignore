@@ -8,3 +8,6 @@ dist/
 !examples/**/.env.local
 *.tsbuildinfo
 .next/
+
+# Internal build specs — kept locally only
+readmeprompt*.md
