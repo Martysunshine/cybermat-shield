@@ -1,0 +1,11 @@
+# CyberMat Shield — ignore file
+# Paths, rule IDs, or finding fingerprints to suppress
+
+# Intentionally vulnerable example app — never fail CI on test fixtures
+examples/
+
+# Ignore specific rule IDs (uncomment to use)
+# rule:secrets/generic-api-key
+
+# Ignore specific finding fingerprints (copy from report.json)
+# fp:abc123...
