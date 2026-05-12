@@ -9,15 +9,15 @@ const repoRoot = resolve(__dirname, '..');
 const outFile = resolve(repoRoot, 'docs', 'demo.cast');
 const target = resolve(repoRoot, 'examples', 'vulnerable-next-app');
 
-const WIDTH = 110;
-const HEIGHT = 42;
+const WIDTH = 90;
+const HEIGHT = 22;
 const start = Date.now();
 
 const ws = createWriteStream(outFile);
 ws.write(JSON.stringify({ version: 2, width: WIDTH, height: HEIGHT, title: 'CyberMat Shield — Security Scanner' }) + '\n');
 
 // Simulate typing the command first
-const cmd = `node packages/cli/dist/index.js scan examples/vulnerable-next-app --fail-on none`;
+const cmd = `cybermat scan examples/vulnerable-next-app`;
 let t = 0.3;
 for (const ch of `$ ${cmd}`) {
   ws.write(JSON.stringify([+(t.toFixed(3)), 'o', ch]) + '\n');

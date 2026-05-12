@@ -1,8 +1,5 @@
 lockfileVersion: '9.0'
 
-onlyBuiltDependencies:
-  - esbuild
-
 settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
@@ -158,6 +155,31 @@ importers:
 
   packages/shared:
     devDependencies:
+      rimraf:
+        specifier: ^5.0.0
+        version: 5.0.10
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
+  packages/vscode:
+    dependencies:
+      '@cybermat/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cybermat/rules':
+        specifier: workspace:*
+        version: link:../rules
+      '@cybermat/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.40
+      '@types/vscode':
+        specifier: ^1.90.0
+        version: 1.118.0
       rimraf:
         specifier: ^5.0.0
         version: 5.0.10
@@ -464,6 +486,9 @@ packages:
   '@types/react@18.3.28':
     resolution: {integrity: sha512-z9VXpC7MWrhfWipitjNdgCauoMLRdIILQsAEV+ZesIzBq/oUlxk0m3ApZuMFCXdnS4U7KrI+l3WRUEGQ8K1QKw==}
 
+  '@types/vscode@1.118.0':
+    resolution: {integrity: sha512-Ah6eTlqDcwIMELEVwQMO++rJAFBRz/oLluLD/vWdYrH1KuI9kfpaM+7pg0OvvascgcJy+ghLCERAYouM4QbzGw==}
+
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
     engines: {node: '>=8'}
@@ -749,6 +774,9 @@ packages:
     resolution: {integrity: sha512-si7QWI6zUMq56bESFvagtmzMdGOtoxfR+Sez11Mobfc7tm+VkUckk9bW2UeffTGVUbOksxmSw0AA2gs8g71NCQ==}
     engines: {node: '>=12'}
 
+onlyBuiltDependencies:
+  - esbuild
+
 snapshots:
 
   '@esbuild/aix-ppc64@0.27.7':
@@ -937,6 +965,8 @@ snapshots:
     dependencies:
       '@types/prop-types': 15.7.15
       csstype: 3.2.3
+
+  '@types/vscode@1.118.0': {}
 
   ansi-regex@5.0.1: {}
 

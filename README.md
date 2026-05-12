@@ -19,6 +19,7 @@
 - 🚦 **CI-ready** — SARIF output, baseline diffing, GitHub Actions workflow included
 - 🤖 **AI-security aware** — detects prompt injection, LLM output XSS, unsafe tool calls
 - ⚡ **Fast** — scans < 500 files in under 5 seconds
+- 🖥️ **VS Code extension** — inline diagnostics in your editor as you work
 
 ---
 
@@ -290,6 +291,7 @@ packages/
   rules/       95 rules across 9 packs with OWASP/CWE metadata
   core/        Orchestrator — runScan(), runRuntimeScan(), runAuthScan()
   cli/         Commander.js CLI entry point
+  vscode/      VS Code extension — inline diagnostics, status bar, auto-scan on save
 
 examples/
   vulnerable-next-app/   Intentionally vulnerable Next.js app (all secrets are FAKE)
@@ -405,6 +407,7 @@ node packages/cli/dist/index.js scan examples/vulnerable-next-app
 | ✅ 7 — Auth/Access-Control | IDOR, vertical privilege, anonymous route testing, 38 unit tests |
 | ✅ 8 — Productionization | SARIF, baseline diffing, GitHub Actions, npm packaging |
 | ✅ v0.2.0 — Multi-language | 60+ extensions, language classifier, 28 multilang detectors, entropy scoring, fingerprints |
+| ✅ Step 3 — VS Code Extension | Inline diagnostics, status bar, auto-scan on save, F5 launch config |
 
 ---
 

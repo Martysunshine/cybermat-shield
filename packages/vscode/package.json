@@ -1,0 +1,73 @@
+{
+  "name": "cybermat-shield-vscode",
+  "displayName": "CyberMat Shield",
+  "description": "Inline security scanning — secrets, XSS, injection, misconfigs. Local-first, no cloud.",
+  "version": "0.1.0",
+  "publisher": "martysunshine",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Martysunshine/cybermat-shield.git"
+  },
+  "homepage": "https://github.com/Martysunshine/cybermat-shield#readme",
+  "bugs": {
+    "url": "https://github.com/Martysunshine/cybermat-shield/issues"
+  },
+  "categories": ["Linters", "Other"],
+  "keywords": ["security", "secrets", "xss", "owasp", "appsec", "sast", "injection"],
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "activationEvents": [
+    "workspaceContains:**/*.ts",
+    "workspaceContains:**/*.tsx",
+    "workspaceContains:**/*.js",
+    "workspaceContains:**/*.jsx",
+    "workspaceContains:package.json"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cybermat.scan",
+        "title": "CyberMat: Scan Workspace",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "cybermat.clear",
+        "title": "CyberMat: Clear Findings"
+      }
+    ],
+    "configuration": {
+      "title": "CyberMat Shield",
+      "properties": {
+        "cybermat.scanOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Re-scan the workspace 2 seconds after saving a file."
+        },
+        "cybermat.scanOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically scan when a workspace is opened."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@cybermat/core": "workspace:*",
+    "@cybermat/rules": "workspace:*",
+    "@cybermat/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "rimraf": "^5.0.0",
+    "typescript": "^5.4.0"
+  }
+}
