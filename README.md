@@ -1,4 +1,4 @@
-# 🛡️ CyberMat Shield
+# 🛡️ CyberMat Shield 🛡️
 
 > **Local-first Application Security Scanner** — finds secrets, vulnerabilities, misconfigs, and access-control bugs in your codebase. Runs entirely on your machine. Nothing leaves your computer.
 
