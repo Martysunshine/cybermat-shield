@@ -8,6 +8,7 @@ import { supplyChainPack } from './supply-chain';
 import { aiSecurityPack } from './ai-security';
 import { runtimePack } from './runtime';
 import { authzPack } from './authz';
+import { multilangPack } from './multilang';
 
 export {
   secretsPack,
@@ -19,6 +20,7 @@ export {
   aiSecurityPack,
   runtimePack,
   authzPack,
+  multilangPack,
 };
 
 export const defaultRegistry = new RuleRegistry();
@@ -31,3 +33,4 @@ defaultRegistry.registerRulePack(supplyChainPack);
 defaultRegistry.registerRulePack(aiSecurityPack);
 defaultRegistry.registerRulePack(runtimePack);
 defaultRegistry.registerRulePack(authzPack);
+defaultRegistry.registerRulePack(multilangPack);

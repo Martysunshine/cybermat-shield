@@ -22,6 +22,7 @@ export {
   aiSecurityPack,
   runtimePack,
   authzPack,
+  multilangPack,
 } from './packs';
 
 /** All code-scanner rules (Layer 1) */

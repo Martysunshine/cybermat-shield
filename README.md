@@ -22,14 +22,16 @@
 
 ## 🚀 Quick Start
 
-### Install from npm (recommended)
+### Build from source (recommended until npm package is published)
 
 ```bash
-npm install -g @cybermat/cli
-appsec scan ./your-project
+git clone https://github.com/Martysunshine/cybermat-shield.git
+cd cybermat-shield
+pnpm install && pnpm build
+node packages/cli/dist/index.js scan ./your-project
 ```
 
-### Or install from GitHub Packages
+### Install from GitHub Packages
 
 ```bash
 npm install -g @martysunshine/cybermatshield --registry=https://npm.pkg.github.com
@@ -38,20 +40,7 @@ appsec scan ./your-project
 
 > Requires a GitHub account and a personal access token with `read:packages` scope.
 
-### Or run without installing
-
-```bash
-npx @cybermat/cli scan ./your-project
-```
-
-### Or build from source
-
-```bash
-git clone https://github.com/Martysunshine/cybermat-shield.git
-cd cybermat-shield
-pnpm install && pnpm build
-node packages/cli/dist/index.js scan ./your-project
-```
+> **Coming soon:** Public npm package — `npx appsec-shield scan ./your-project` with no auth required.
 
 ---
 
@@ -116,7 +105,7 @@ appsec auth init                      # Create auth config template
 appsec auth test-config               # Validate auth profiles
 
 # ── Rules ────────────────────────────────────────────────────
-appsec rules list                     # List all 95 rules
+appsec rules list                     # List all 120+ rules
 appsec rules list --owasp A01         # Filter by OWASP category
 appsec rules list --engine secrets    # Filter by engine
 appsec rules show <id>                # Full rule detail + examples
@@ -332,12 +321,42 @@ Full details → [docs/safety-model.md](docs/safety-model.md)
 
 ---
 
+## 🏗️ Language & File Coverage
+
+CyberMat Shield scans 60+ file extensions and 50+ special filenames.
+
+| Language / File type | Coverage |
+|---|---|
+| TypeScript / JavaScript | Full AST analysis, source/sink correlation, secrets, patterns |
+| Python | Pattern scanning + secrets (eval, exec, pickle, subprocess shell=True, yaml.load) |
+| Go | Secrets |
+| Java / Kotlin | Secrets |
+| PHP | Pattern scanning + secrets (eval, shell_exec, unserialize) |
+| Ruby | Secrets |
+| Rust / C / C++ | Secrets |
+| Shell scripts (.sh, .bash, .ps1) | Pattern scanning (curl\|sh, eval, chmod 777, TLS bypass) |
+| Dockerfile / Containerfile | Pattern scanning (curl\|sh, ADD URL, ENV secrets, USER root) |
+| Docker Compose (YAML) | Pattern scanning (privileged, docker.sock, host network) |
+| Terraform / HCL | Pattern scanning (public S3, SSH/RDP open to world) |
+| Kubernetes YAML | Pattern scanning (privileged, hostNetwork, hostPID, runAsRoot) |
+| GitHub Actions / GitLab CI / CircleCI | Pattern scanning (curl\|bash, pull_request_target unsafe checkout) |
+| Jenkinsfile / Makefile / Procfile | Secrets |
+| Environment files (.env, .env.local, etc.) | Secrets |
+| JSON / YAML / TOML / XML / INI | Secrets + config misconfigurations |
+| GraphQL / Prisma / SQL | Secrets |
+| Certificates & keys (.pem, .key, .crt) | Secrets |
+| go.mod / Cargo.toml / requirements.txt / pom.xml | Dependency + secrets |
+| Firebase / Firestore / Supabase rules | Config misconfigurations |
+
+> Full AST analysis (import graph, source/sink correlation) is only for TypeScript/JavaScript. All other languages get pattern-based scanning and secret detection.
+
 ## 🏗️ Supported Stacks
 
 | Category | Supported |
 |---|---|
-| Languages | TypeScript, JavaScript |
-| Frameworks | Next.js, React, Express, Node.js |
+| Languages | TypeScript, JavaScript, Python, Go, Java, PHP, Ruby, Rust, C/C++, Kotlin, Swift |
+| Infrastructure | Docker, Terraform, Kubernetes, HCL, Shell/Bash, PowerShell |
+| Frameworks | Next.js, React, Express, Node.js, Fastify, NestJS, Vue, Svelte, Astro |
 | Auth | Clerk, NextAuth/Auth.js, Supabase Auth, Firebase Auth |
 | Databases | PostgreSQL, MySQL, MongoDB, Redis, Supabase, Firebase |
 | Payments | Stripe, PayPal, Lemon Squeezy |
@@ -381,6 +400,7 @@ node packages/cli/dist/index.js scan examples/vulnerable-next-app
 | ✅ 6 — Safe Runtime Scanner | Playwright crawler, 8 analyzers, 48 unit tests |
 | ✅ 7 — Auth/Access-Control | IDOR, vertical privilege, anonymous route testing, 38 unit tests |
 | ✅ 8 — Productionization | SARIF, baseline diffing, GitHub Actions, npm packaging |
+| ✅ v0.2.0 — Multi-language | 60+ extensions, language classifier, 28 multilang detectors, entropy scoring, fingerprints |
 
 ---
 

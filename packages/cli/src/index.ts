@@ -81,6 +81,20 @@ function printReport(report: ScanReport, diff?: BaselineDiff): void {
 
   console.log(`  ${chalk.gray('Target:')}  ${chalk.white(report.scannedPath)}`);
   console.log(`  ${chalk.gray('Files:')}   ${chalk.white(String(filesScanned))} scanned, ${chalk.gray(String(filesIgnored))} ignored`);
+
+  const coverage = report.metadata?.coverage;
+  if (coverage) {
+    const topLangs = Object.entries(coverage.filesByLanguage)
+      .filter(([lang]) => lang !== 'unknown')
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([lang, count]) => `${lang} ${count}`)
+      .join(chalk.gray(', '));
+    if (topLangs) {
+      console.log(`  ${chalk.gray('Languages:')} ${chalk.cyan(topLangs)}`);
+    }
+  }
+
   console.log(`  ${chalk.gray('Stack:')}   ${chalk.cyan(stackStr)}`);
 
   if (diff) {

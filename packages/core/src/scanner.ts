@@ -2,9 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type {
   Rule, ScanReport, ScanOptions, ScanSummary, Finding,
-  ScannerConfig, DetectedStack, Severity, ScannerLayer, ScanMetadata,
+  ScannerConfig, DetectedStack, Severity, ScannerLayer, ScanMetadata, ScanCoverage,
   RouteInfo, FileClassification, ParsedFile,
-  RuleExecutionResult, EngineHealth,
+  RuleExecutionResult, EngineHealth, ScannedFile,
 } from '@cybermat/shared';
 import { DEFAULT_CONFIG } from '@cybermat/shared';
 import { buildFileInventory } from './file-inventory';
@@ -90,6 +90,18 @@ function getTopRecommendations(findings: Finding[]): string[] {
     if (recs.length >= 5) break;
   }
   return recs;
+}
+
+function computeCoverage(files: ScannedFile[], skippedByReason: Record<string, number>): ScanCoverage {
+  const filesByLanguage: Record<string, number> = {};
+  const filesByKind: Record<string, number> = {};
+  for (const f of files) {
+    const lang = f.language ?? 'unknown';
+    filesByLanguage[lang] = (filesByLanguage[lang] ?? 0) + 1;
+    const kind = f.fileKind ?? 'unknown';
+    filesByKind[kind] = (filesByKind[kind] ?? 0) + 1;
+  }
+  return { filesByLanguage, filesByKind, skippedByReason };
 }
 
 function getTopRiskyFiles(findings: Finding[]): string[] {
@@ -178,7 +190,7 @@ export async function runScan(
 
   // 1. Load config & inventory
   const packageJson = loadPackageJson(absolutePath);
-  const { files, ignored } = buildFileInventory(absolutePath, config);
+  const { files, ignored, skippedByReason } = buildFileInventory(absolutePath, config);
   const ignoreRules = loadIgnoreRules(absolutePath);
 
   // 2. Detect stack
@@ -300,6 +312,7 @@ export async function runScan(
     platform: process.platform,
     scanDurationMs,
     engineHealth,
+    coverage: computeCoverage(files, skippedByReason),
   };
 
   const report: ScanReport = {

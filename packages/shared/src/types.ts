@@ -250,6 +250,12 @@ export interface EngineHealth {
   durationMs: number;
 }
 
+export interface ScanCoverage {
+  filesByLanguage: Record<string, number>;
+  filesByKind: Record<string, number>;
+  skippedByReason: Record<string, number>;
+}
+
 export interface ScanMetadata {
   timestamp: string;
   scannedPath?: string;
@@ -261,6 +267,7 @@ export interface ScanMetadata {
   platform?: string;
   scanDurationMs?: number;
   engineHealth?: EngineHealth;
+  coverage?: ScanCoverage;
 }
 
 export type ScanMode = {

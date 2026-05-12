@@ -1,6 +1,6 @@
 {
-  "name": "@martysunshine/cybermatshield",
-  "version": "0.1.0",
+  "name": "appsec-shield",
+  "version": "0.2.0",
   "description": "CyberMat Shield — local-first application security scanner (static, runtime, auth/access-control)",
   "keywords": [
     "security",
@@ -25,7 +25,8 @@
     "url": "https://github.com/Martysunshine/cybermat-shield/issues"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "bin": {
     "appsec": "./dist/index.js"
