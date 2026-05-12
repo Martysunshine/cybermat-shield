@@ -2,7 +2,7 @@
 
 > **Local-first Application Security Scanner** — finds secrets, vulnerabilities, misconfigs, and access-control bugs in your codebase. Runs entirely on your machine. Nothing leaves your computer.
 
-[![npm](https://img.shields.io/npm/v/@cybermat/cli?color=crimson&label=npm)](https://www.npmjs.com/package/@cybermat/cli)
+[![npm](https://img.shields.io/npm/v/cybermat?color=crimson&label=npm)](https://www.npmjs.com/package/cybermat)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![OWASP Top 10:2025](https://img.shields.io/badge/OWASP-Top%2010%3A2025-orange)](docs/rules.md)
 [![Node ≥18](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
@@ -40,7 +40,7 @@ appsec scan ./your-project
 
 > Requires a GitHub account and a personal access token with `read:packages` scope.
 
-> **Coming soon:** Public npm package — `npx appsec-shield scan ./your-project` with no auth required.
+> **Coming soon:** Public npm package — `npx cybermat scan ./your-project` with no auth required.
 
 ---
 

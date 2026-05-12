@@ -1,5 +1,5 @@
 {
-  "name": "appsec-shield",
+  "name": "cybermat",
   "version": "0.2.0",
   "description": "CyberMat Shield — local-first application security scanner (static, runtime, auth/access-control)",
   "keywords": [
@@ -29,6 +29,7 @@
     "access": "public"
   },
   "bin": {
+    "cybermat": "./dist/index.js",
     "appsec": "./dist/index.js"
   },
   "main": "dist/index.js",
