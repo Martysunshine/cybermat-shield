@@ -1,3 +1,9 @@
-// Placeholder — implemented in Phase 7 (IDOR, BOLA, vertical privilege testing)
-// Requires: auth test accounts configured (STOP #3)
-export const AUTHZ_ENGINE_VERSION = '0.0.0';
+export { AuthzScanner } from './authz-scanner';
+export { AuthProfileLoader } from './auth-profile-loader';
+export { HttpAuthClient } from './http-auth-client';
+export { discoverCandidates } from './route-discoverer';
+export { analyzeSensitiveResponse, isSensitiveResponse } from './sensitive-response-analyzer';
+export { compareResponses } from './response-comparator';
+export { AuthzFindingBuilder } from './authz-finding-builder';
+
+export const AUTHZ_ENGINE_VERSION = '0.7.0';

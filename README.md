@@ -1,12 +1,213 @@
 # CyberMat Shield
 
-**Local-first Application Security Scanner for modern web apps, APIs, and AI-assisted codebases.**
-
-Runs entirely on your machine. No code upload. No cloud required. Findings are written to `.appsec/` in your project.
+Local-first Application Security Scanner for modern web apps, APIs, and AI-assisted codebases.  
+Maps every finding to **OWASP Top 10:2025**. Runs entirely on your machine — no code upload, no cloud required.
 
 ---
 
-## Supported Stacks
+## What it scans
+
+| Layer | What it finds |
+|---|---|
+| **Static** | Secrets/API keys (66 detectors), XSS sinks, SQL injection, eval/exec, missing auth guards, insecure deps, supply-chain risks, AI security issues |
+| **Runtime** | Missing security headers, insecure cookies, CORS misconfigs, open redirects, reflected input, exposed sensitive files (.env, .git/config, swagger, etc.) |
+| **Auth/Access-Control** | IDOR, vertical privilege escalation, anonymous route exposure, tenant boundary issues |
+
+---
+
+## Requirements
+
+- **Node.js ≥ 18** (tested on 22)
+- **pnpm ≥ 8** — `npm install -g pnpm`
+- **Playwright Chromium** — required for `scan-runtime` and `scan-auth`
+
+---
+
+## Quick start
+
+```bash
+git clone https://github.com/Martysunshine/cybermat-shield.git
+cd cybermat-shield
+pnpm install
+pnpm build
+
+# Static scan of any project
+node packages/cli/dist/index.js scan ./your-app
+
+# Runtime scan (requires a running app and Playwright)
+npx playwright install chromium
+node packages/cli/dist/index.js scan-runtime http://localhost:3000
+
+# Auth/access-control scan (requires auth profiles — see below)
+node packages/cli/dist/index.js scan-auth http://localhost:3000
+```
+
+---
+
+## CLI commands
+
+| Command | Description |
+|---|---|
+| `appsec scan <path>` | Static code scan |
+| `appsec scan <path> --json` | Output JSON report to stdout |
+| `appsec scan <path> --html` | Write an HTML report |
+| `appsec scan-runtime <url>` | Safe browser-based runtime scan |
+| `appsec scan-runtime <url> --max-pages 10` | Limit pages crawled |
+| `appsec scan-runtime <url> --no-browser` | HTTP probes only, no Playwright |
+| `appsec scan-auth <url>` | Authenticated access-control scan |
+| `appsec scan-auth <url> --config .appsec/auth-config.json` | Use a specific config file |
+| `appsec auth init` | Create `.appsec/auth-config.json` template |
+| `appsec auth test-config` | Validate auth profiles and test connectivity |
+| `appsec rules list` | List all 95 rules |
+| `appsec rules list --owasp A01` | Filter by OWASP category |
+| `appsec rules list --engine secrets` | Filter by engine |
+| `appsec rules show <id>` | Show rule detail, examples, remediation |
+| `appsec rules docs` | Generate `docs/rules.md` |
+
+---
+
+## Monorepo structure
+
+```
+packages/
+  shared/      Core types (Finding, ScanReport, RuntimeFinding, AuthzFinding, …)
+  analyzers/   File inventory, stack detection, AST analysis, route discovery
+  engines/     Scanner engines — secrets, static-code, runtime, authz
+  rules/       95 rules across 9 packs with OWASP/CWE metadata
+  core/        Orchestrator — runScan(), runRuntimeScan(), runAuthScan()
+  cli/         Commander.js CLI entry point
+
+examples/
+  vulnerable-next-app/   Intentionally vulnerable Next.js app (all secrets are FAKE)
+
+scripts/
+  setup-auth-profiles.ts   Saves Playwright storageState for all 3 test users
+
+docs/
+  product-architecture.md
+  internal-architecture.md
+  roadmap.md
+  rules.md                      (auto-generated — run `appsec rules docs`)
+  auth-access-control-scanning.md
+```
+
+---
+
+## OWASP Top 10:2025 coverage
+
+| OWASP Category | Scanner Layer |
+|---|---|
+| A01 Broken Access Control | Static (missing guards) + Auth (IDOR, privilege) |
+| A02 Security Misconfiguration | Static (CORS, headers, source maps) + Runtime (headers, cookies) |
+| A03 Software Supply Chain Failures | Static (lifecycle scripts, wildcard deps, missing lockfile) |
+| A04 Cryptographic Failures | Static (66 secret detectors, localStorage tokens) |
+| A05 Injection | Static (XSS, SQL, command, eval) |
+| A06 Insecure Design | Static (AI tool calls, system prompt injection) |
+| A07 Authentication Failures | Static (missing guards) + Runtime (missing headers) + Auth (anonymous access) |
+| A08 Data Integrity Failures | Static (webhook secrets, AI tool misuse) |
+
+---
+
+## Secret detection
+
+**66 detectors** across:
+
+Cloud · Auth/Session · Databases · Payments · AI Providers · Platforms · Communication · Monitoring · Dev Platforms · Private Keys · Connection Strings
+
+Secrets are **redacted in all outputs** — reports show `sk_l****cdef`, never the full value.
+
+---
+
+## Privacy model
+
+- Local by default — nothing is sent anywhere
+- Secrets redacted before being written to any report file
+- Runtime scanner: GET/HEAD/OPTIONS only; no mutation, no data submission
+- Auth scanner: no brute force, no random ID generation, maxAuthzRequests=75
+
+---
+
+## The test target — `examples/vulnerable-next-app`
+
+An intentionally vulnerable Next.js app used for scanner testing. **All secrets are FAKE.**  
+Contains controlled vulnerability fixtures for every scanner layer.
+
+**Start it:**
+
+```bash
+cd examples/vulnerable-next-app
+npx next dev
+# → http://localhost:3000
+```
+
+**Test accounts (fake passwords):**
+
+| Profile | Email | Password | Role |
+|---|---|---|---|
+| userA | usera@test.com | password123 | user |
+| userB | userb@test.com | password123 | user |
+| admin | admin@test.com | admin123 | admin |
+
+**Auth/IDOR routes the scanner tests against:**
+
+| Route | What is vulnerable |
+|---|---|
+| `GET /api/admin` | No authentication at all |
+| `GET /api/users?userId=<id>` | No auth, arbitrary user ID from query param |
+| `GET /api/users/<id>` | Auth required but no ownership check (any user can read any user's data) |
+| `GET /api/resources/<id>` | Auth required but no ownership check (userB can read resource-1 which belongs to userA) |
+
+---
+
+## Setting up auth profiles for `scan-auth`
+
+This is **STOP #3** in the build process. The `scan-auth` command needs session cookies for each test user. The setup script automates the login and saves them.
+
+### Step 1 — Start the test app
+
+```bash
+# Terminal 1
+cd examples/vulnerable-next-app
+npx next dev
+```
+
+### Step 2 — Run the setup script
+
+```bash
+# Terminal 2 (from repo root)
+npx tsx --tsconfig scripts/tsconfig.json scripts/setup-auth-profiles.ts
+```
+
+This logs in as each test user via Playwright and saves their sessions to:
+
+```
+.appsec/auth/userA.storage.json
+.appsec/auth/userB.storage.json
+.appsec/auth/admin.storage.json
+```
+
+### Step 3 — Run the auth scanner
+
+```bash
+node packages/cli/dist/index.js scan-auth http://localhost:3000
+```
+
+> **Session reset:** The test app stores sessions in-memory. They reset when the dev server restarts.  
+> Re-run `setup-auth-profiles.ts` any time you restart the app.
+
+### Using auth profiles against your own app
+
+1. `node packages/cli/dist/index.js auth init` — creates `.appsec/auth-config.json` template
+2. Edit the config with your login URL, test account credentials, and resource pairs
+3. Export storageState for each user (either via the setup script or manually with Playwright)
+4. `node packages/cli/dist/index.js auth test-config` — validates profiles
+5. `node packages/cli/dist/index.js scan-auth <your-url>`
+
+See [docs/auth-access-control-scanning.md](docs/auth-access-control-scanning.md) for the full guide.
+
+---
+
+## Supported stacks
 
 | Category | Supported |
 |---|---|
@@ -18,111 +219,10 @@ Runs entirely on your machine. No code upload. No cloud required. Findings are w
 | AI Providers | OpenAI, Anthropic, Google/Gemini, Mistral, Groq, ElevenLabs, HuggingFace, Replicate, Together AI |
 | Platforms | Vercel, Netlify, Cloudflare |
 | Comms | Resend, SendGrid, Mailgun, Twilio, Slack, Discord, Telegram |
-| Monitoring | Sentry, PostHog, Datadog, New Relic |
-| CI/CD | GitHub Actions, GitLab CI |
 
 ---
 
-## Install & Run
-
-```bash
-# Install dependencies
-pnpm install
-
-# Build all packages
-pnpm build
-
-# Scan a project
-node packages/cli/dist/index.js scan <path-to-project>
-
-# Options
-node packages/cli/dist/index.js scan . --json     # Output JSON to stdout
-node packages/cli/dist/index.js scan . --output-dir .reports
-```
-
-**Reports are saved to `.appsec/report.json` and `.appsec/report.html`.**
-
----
-
-## OWASP Top 10:2025 Mapping
-
-| OWASP Category | Scanner Coverage |
-|---|---|
-| A01 Broken Access Control | Missing middleware, unprotected admin routes, IDOR via user_id from body |
-| A02 Security Misconfiguration | CORS wildcard, missing security headers, exposed source maps, .env committed |
-| A03 Software Supply Chain Failures | Suspicious lifecycle scripts, wildcard dependency versions, missing lockfile |
-| A04 Cryptographic Failures | 60+ secret detectors (API keys, private keys, connection strings) |
-| A05 Injection | XSS sinks, SQL injection, command injection, eval usage |
-| A06 Insecure Design | AI tool calls without approval, unsafe AI output rendering |
-| A07 Authentication Failures | Missing auth guards, JWT stored in localStorage, insecure cookies |
-| A08 Software or Data Integrity Failures | Webhook secret exposure, AI tool misuse |
-| A09 Security Logging and Alerting Failures | (Phase 4+) |
-| A10 Mishandling of Exceptional Conditions | (Phase 4+) |
-
----
-
-## Privacy Model
-
-- **Local only by default.** The scanner reads your files on disk. Nothing is sent to any server.
-- **No secret upload.** Secrets detected in your code are redacted in all outputs. The raw value is never written to any report.
-- **No destructive exploitation.** The scanner only reads files statically. It does not attempt to authenticate, make external API calls, or exploit findings.
-- **No external scanning without explicit opt-in.** The runtime scanner (Phase 6) only runs when you explicitly provide a URL with `appsec scan-runtime <url>`.
-- **Reports redact secrets.** JSON, HTML, and terminal output all show redacted values (e.g., `sk_l****cdef`). The full secret is never stored.
-- **Future cloud mode is opt-in.** Any future cloud dashboard or remote scanning will require explicit configuration. Local mode remains the default.
-
----
-
-## Ignore System
-
-Create `.appsecignore` in your project root to suppress known findings:
-
-```
-# Ignore by file path
-examples/vulnerable-next-app/.env.local
-
-# Ignore by rule ID
-rule:supply-chain.missing-lockfile
-
-# Ignore by finding fingerprint (ID from report.json)
-fp:a1b2c3d4e5f6
-
-# Wildcard prefix
-test/*
-```
-
----
-
-## Secret Detection
-
-The scanner includes **66 secret detectors** across:
-
-- **Cloud:** AWS, Azure, GCP, Cloudflare
-- **Auth/Session:** Clerk, NextAuth, JWT, Session secrets
-- **Databases:** PostgreSQL, MySQL, MongoDB, Redis, Upstash
-- **Payments:** Stripe, PayPal, Lemon Squeezy
-- **AI Providers:** OpenAI, Anthropic, Google/Gemini, Mistral, Groq, ElevenLabs, HuggingFace, Replicate, Together AI
-- **Platforms:** Supabase, Firebase, Vercel, Netlify
-- **Communication:** Resend, SendGrid, Mailgun, Twilio, Slack, Discord, Telegram
-- **Monitoring:** Sentry, PostHog, Datadog, New Relic
-- **Dev Platforms:** GitHub, GitLab, npm, Docker Hub
-- **Private Keys:** RSA, EC, OpenSSH, PGP, generic PEM
-- **Connection Strings:** PostgreSQL, MySQL, MongoDB, Redis, AMQP, SMTP
-
-### Context-Aware Severity
-
-Severity adjusts based on where a secret appears:
-
-| Secret | Backend env file | Source code | Frontend / client code |
-|---|---|---|---|
-| Supabase service role key | high | critical | critical |
-| Stripe secret key | high | critical | critical |
-| OpenAI API key | high | high | critical |
-| Private key | critical | critical | critical |
-| Sentry DSN | info | info | info |
-
----
-
-## Risk Score
+## Risk score
 
 Findings reduce the score from 100:
 
@@ -134,42 +234,70 @@ Findings reduce the score from 100:
 | Low | −2 |
 | Info | 0 |
 
-Score is clamped to 0 minimum. A score ≥ 70 is Good, ≥ 40 is Fair, ≥ 20 is Poor, < 20 is Critical.
+≥70 = Good · ≥40 = Fair · ≥20 = Poor · <20 = Critical
 
 ---
 
-## Architecture
+## Ignore false positives
+
+Create `.appsecignore` in your project root:
 
 ```
-packages/
-  shared/          Core types (Finding, Rule, ScanReport, etc.)
-  engines/         Detection engines
-    secrets-engine/    66 secret detectors, redaction utilities
-    static-code-engine/   (Phase 4)
-    dependency-engine/    (Phase 4)
-    config-engine/        (Phase 4)
-    ai-security-engine/   (Phase 4)
-    runtime-engine/       (Phase 6 — Playwright)
-    authz-engine/         (Phase 7 — IDOR/BOLA)
-  rules/           Rule modules (use engines, produce Finding[])
-  core/            Scanner orchestrator, file inventory, stack detection
-  cli/             Commander.js CLI (appsec scan <path>)
-  dashboard/       (Phase 8 — React + Vite)
-examples/
-  vulnerable-next-app/   Intentionally vulnerable test target
+# By file path
+examples/vulnerable-next-app/.env.local
+
+# By rule ID
+rule:supply-chain.missing-lockfile
+
+# By fingerprint (from report.json)
+fp:a1b2c3d4e5f6
+
+# Wildcard
+test/*
 ```
 
 ---
 
-## Phases
+## Development
 
-| Phase | Status | Description |
+```bash
+pnpm install
+pnpm build
+
+# Run unit tests
+npx tsx --test packages/engines/src/runtime-engine/__tests__/runtime.test.ts
+npx tsx --test packages/engines/src/authz-engine/__tests__/authz.test.ts
+```
+
+---
+
+## Build phases
+
+| Phase | Status | What was built |
 |---|---|---|
-| 1 — MVP Foundation | ✅ Done | Basic rules, terminal output, JSON + HTML reports |
-| 2 — Architecture Hardening | ✅ Done | 66 secret detectors, engines layer, .appsecignore, upgraded types |
-| 3 — Three-Layer Architecture | ⬜ Planned | Code / Runtime / Auth scanner separation, ScanPlanner |
-| 4 — Deep Static Analysis | ⬜ Planned | AST, import graph, source/sink correlation, route discovery |
-| 5 — Rule Pack System | ⬜ Planned | Full OWASP/CWE metadata, rule registry, CLI rule commands |
-| 6 — Safe Runtime Scanner | ⬜ Planned | Playwright-based header/cookie/CORS/redirect analysis |
-| 7 — Auth/Access-Control | ⬜ Planned | IDOR, vertical privilege, tenant boundary testing |
-| 8 — Productionization | ⬜ Planned | SARIF, baseline, GitHub Actions, npm publish |
+| 1 — MVP Foundation | ✅ | Static scanner, Commander.js CLI, JSON + HTML reports |
+| 2 — Architecture Hardening | ✅ | 66 secret detectors, engines layer, `.appsecignore`, upgraded Finding type |
+| 3 — Three-Layer Architecture | ✅ | Code/Runtime/Authz layer separation, ScanPlanner, docs |
+| 4 — Deep Static Analysis | ✅ | AST analysis, source/sink correlation, import graph, route discovery |
+| 5 — Rule Pack System | ✅ | RuleRegistry, 9 RulePacks, 95 rules, OWASP mapping, `appsec rules` commands |
+| 6 — Safe Runtime Scanner | ✅ | Playwright crawler, 8 analyzers, `appsec scan-runtime`, 48 unit tests |
+| 7 — Auth/Access-Control Scanner | ✅ | IDOR, vertical privilege, anonymous route tests, `appsec scan-auth` |
+| 8 — Productionization | ⬜ | SARIF, baseline diffing, GitHub Actions, npm packaging |
+
+---
+
+## Contributing
+
+1. Fork and clone
+2. `pnpm install && pnpm build`
+3. Test against `examples/vulnerable-next-app`
+4. Add unit tests for new engine logic
+5. Submit a PR
+
+**All secrets in `examples/` are fake test values. Do not commit real credentials.**
+
+---
+
+## License
+
+MIT

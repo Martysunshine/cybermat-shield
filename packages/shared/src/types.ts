@@ -363,3 +363,91 @@ export interface RuntimeScanReport {
   owaspCoverage: string[];
   topRecommendations: string[];
 }
+
+// ─── Auth Scan Types ──────────────────────────────────────────────────────────
+
+export interface AuthProfileConfig {
+  label?: string;
+  storageStatePath?: string;
+  headers?: Record<string, string>;
+  cookies?: string;
+  isPrivileged?: boolean;
+}
+
+export interface AuthProfile {
+  name: string;
+  label: string;
+  type: 'anonymous' | 'storageState' | 'headers' | 'cookies';
+  headers: Record<string, string>;
+  cookies?: string;
+  storageStatePath?: string;
+  isPrivileged?: boolean;
+}
+
+export interface AccessControlTestConfig {
+  name: string;
+  type: 'horizontal' | 'tenant-boundary';
+  userAOwns?: string[];
+  userBOwns?: string[];
+  shouldBePrivate?: boolean;
+}
+
+export interface AuthScanConfig {
+  baseUrl: string;
+  profiles: Record<string, AuthProfileConfig>;
+  accessControlTests?: AccessControlTestConfig[];
+  maxAuthzRequests?: number;
+  requestDelayMs?: number;
+  timeoutMs?: number;
+}
+
+export interface AccessRouteCandidate {
+  route: string;
+  method: 'GET' | 'HEAD' | 'OPTIONS';
+  source: 'static' | 'runtime' | 'config' | 'heuristic';
+  file?: string;
+  riskTags: string[];
+  requiresAuthExpected: boolean;
+  destructive: boolean;
+}
+
+export interface SensitiveSignal {
+  field: string;
+  confidence: 'high' | 'medium' | 'low';
+  redactedEvidence: string;
+}
+
+export interface StaticCorrelation {
+  file: string;
+  reason: string;
+}
+
+export interface ResponseSnapshot {
+  status: number;
+  contentLength: number;
+  jsonKeys: string[];
+  sensitiveFields: string[];
+  body: string;
+}
+
+export interface AuthzFinding extends Finding {
+  layer: 'authz';
+  url: string;
+  profileUsed?: string;
+  targetProfileName?: string;
+  sensitiveFields?: string[];
+  staticCorrelation?: StaticCorrelation;
+}
+
+export interface AuthScanReport {
+  targetUrl: string;
+  profilesUsed: string[];
+  routesTested: number;
+  resourcePairsTested: number;
+  durationMs: number;
+  findings: AuthzFinding[];
+  summary: ScanSummary;
+  riskScore: number;
+  skippedDestructiveRoutes: string[];
+  recommendations: string[];
+}

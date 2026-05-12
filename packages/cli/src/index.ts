@@ -3,8 +3,8 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import * as path from 'path';
 import * as fs from 'fs';
-import type { ScanReport, Finding, Severity, RuleMetadata, RuleEngine, RuntimeScanReport, RuntimeFinding } from '@cybermat/shared';
-import { runScan, runRuntimeScan } from '@cybermat/core';
+import type { ScanReport, Finding, Severity, RuleMetadata, RuleEngine, RuntimeScanReport, RuntimeFinding, AuthScanReport, AuthzFinding, AuthScanConfig } from '@cybermat/shared';
+import { runScan, runRuntimeScan, runAuthScan } from '@cybermat/core';
 import { allRules, defaultRegistry } from '@cybermat/rules';
 
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8')) as { version: string };
@@ -533,6 +533,269 @@ program
       console.error(chalk.red('  Runtime scan failed:'), err);
       process.exit(2);
     }
+  });
+
+// ── scan-auth command ────────────────────────────────────────────────────────
+
+const AUTH_CONFIG_TEMPLATE: AuthScanConfig = {
+  baseUrl: 'http://localhost:3000',
+  profiles: {
+    userA: {
+      label: 'low-privileged-user-a',
+      storageStatePath: '.appsec/auth/userA.storage.json',
+    },
+    userB: {
+      label: 'low-privileged-user-b',
+      storageStatePath: '.appsec/auth/userB.storage.json',
+    },
+    admin: {
+      label: 'admin-user',
+      storageStatePath: '.appsec/auth/admin.storage.json',
+      isPrivileged: true,
+    },
+  },
+  accessControlTests: [
+    {
+      name: 'User resource ownership',
+      type: 'horizontal',
+      userAOwns: ['/api/resources/resource-1'],
+      userBOwns: ['/api/resources/resource-2'],
+      shouldBePrivate: true,
+    },
+  ],
+  maxAuthzRequests: 75,
+  requestDelayMs: 150,
+  timeoutMs: 10000,
+};
+
+function printAuthzFinding(f: AuthzFinding, index: number): void {
+  const sev = SEVERITY_CHALK[f.severity](`[${f.severity.toUpperCase()}]`);
+  console.log(`  ${chalk.gray(`${index}.`)} ${sev} ${chalk.white.bold(f.title)}`);
+  if (f.url) console.log(`     ${chalk.gray('URL:')}     ${chalk.cyan(f.url)}`);
+  if (f.profileUsed) console.log(`     ${chalk.gray('Profile:')} ${chalk.yellow(f.profileUsed)}`);
+  if (f.targetProfileName) console.log(`     ${chalk.gray('Target:')}  ${chalk.yellow(f.targetProfileName)}`);
+  if (f.owasp.length > 0) console.log(`     ${chalk.gray('OWASP:')}   ${chalk.green(f.owasp.join(', '))}`);
+  if (f.evidence?.reason) console.log(`     ${chalk.gray('Detail:')}  ${chalk.yellow(f.evidence.reason)}`);
+  if (f.staticCorrelation) {
+    console.log(`     ${chalk.gray('Static:')}  ${chalk.cyan(f.staticCorrelation.file)} — ${f.staticCorrelation.reason}`);
+  }
+  console.log(`     ${chalk.gray('Fix:')}     ${f.recommendation.slice(0, 100)}${f.recommendation.length > 100 ? '...' : ''}`);
+  console.log('');
+}
+
+function printAuthReport(report: AuthScanReport): void {
+  const { summary, riskScore, findings, routesTested, resourcePairsTested, durationMs, profilesUsed } = report;
+
+  console.log(`  ${chalk.gray('Target:')}         ${chalk.white(report.targetUrl)}`);
+  console.log(`  ${chalk.gray('Profiles used:')}  ${chalk.cyan(profilesUsed.join(', '))}`);
+  console.log(`  ${chalk.gray('Routes tested:')}  ${chalk.white(String(routesTested))}`);
+  console.log(`  ${chalk.gray('IDOR pairs:')}     ${chalk.white(String(resourcePairsTested))}`);
+  console.log(`  ${chalk.gray('Duration:')}       ${chalk.white(`${(durationMs / 1000).toFixed(1)}s`)}`);
+
+  if (report.skippedDestructiveRoutes.length > 0) {
+    console.log(`  ${chalk.gray('Skipped (destructive):')} ${chalk.gray(report.skippedDestructiveRoutes.slice(0, 3).join(', '))}${report.skippedDestructiveRoutes.length > 3 ? ' ...' : ''}`);
+  }
+  console.log('');
+  console.log(chalk.gray('  ─────────────────────────────────────────────'));
+  console.log('');
+
+  if (findings.length === 0) {
+    console.log(chalk.green.bold('  ✅  No access-control issues detected.'));
+  } else {
+    let idx = 1;
+    for (const severity of SEVERITY_ORDER) {
+      const group = findings.filter(f => f.severity === severity);
+      if (group.length === 0) continue;
+      console.log(`  ${SEVERITY_CHALK[severity](`${severity.toUpperCase()} (${group.length})`)}`);
+      console.log('');
+      for (const f of group) printAuthzFinding(f as AuthzFinding, idx++);
+    }
+  }
+
+  console.log(chalk.gray('  ─────────────────────────────────────────────'));
+  console.log('');
+
+  const scoreColor = riskScore >= 70 ? chalk.green : riskScore >= 40 ? chalk.yellow : chalk.red;
+  console.log(`  ${chalk.gray('Risk Score:')} ${scoreColor.bold(String(riskScore))} ${chalk.gray('/ 100')}`);
+
+  const summaryParts = [
+    summary.critical > 0 ? chalk.red.bold(`Critical: ${summary.critical}`) : '',
+    summary.high > 0 ? chalk.red(`High: ${summary.high}`) : '',
+    summary.medium > 0 ? chalk.yellow(`Medium: ${summary.medium}`) : '',
+    summary.low > 0 ? chalk.blue(`Low: ${summary.low}`) : '',
+    summary.info > 0 ? chalk.gray(`Info: ${summary.info}`) : '',
+  ].filter(Boolean).join(chalk.gray(' | '));
+  if (summaryParts) console.log(`  ${summaryParts}`);
+  console.log('');
+
+  if (report.recommendations.length > 0) {
+    console.log(chalk.gray('  Recommended fixes:'));
+    report.recommendations.slice(0, 4).forEach((r, i) => {
+      console.log(`  ${chalk.gray(`${i + 1}.`)} ${r.slice(0, 100)}${r.length > 100 ? '...' : ''}`);
+    });
+    console.log('');
+  }
+}
+
+program
+  .command('scan-auth <url>')
+  .description('Authenticated access-control scan (IDOR, vertical privilege, anonymous route testing)')
+  .option('--config <path>', 'Path to auth config JSON', '.appsec/auth-config.json')
+  .option('--json', 'Output full JSON report to stdout')
+  .action(async (url: string, opts: { config: string; json?: boolean }) => {
+    printBanner();
+
+    try { new URL(url); } catch {
+      console.error(chalk.red(`  Error: Invalid URL: ${url}`));
+      process.exit(2);
+    }
+
+    const isLocal = url.includes('localhost') || url.includes('127.0.0.1') || url.includes('.local');
+    if (!isLocal) {
+      console.log(chalk.yellow(`  Warning: Target does not appear to be localhost.`));
+      console.log(chalk.yellow(`  Only scan applications you own or have explicit permission to test.`));
+      console.log('');
+    }
+
+    // Load config
+    let config: AuthScanConfig;
+    const configPath = path.resolve(opts.config);
+    if (fs.existsSync(configPath)) {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as AuthScanConfig;
+      config.baseUrl = url;
+    } else {
+      console.log(chalk.gray(`  No auth-config.json found. Using defaults (storageState files from .appsec/auth/).`));
+      console.log(chalk.gray(`  Run "appsec auth init" to create a config template.`));
+      console.log('');
+      config = { ...AUTH_CONFIG_TEMPLATE, baseUrl: url };
+    }
+
+    console.log(chalk.gray(`  Scanning auth/access-control: ${url}`));
+    console.log(chalk.gray(`  Safe mode: GET/HEAD only, no brute force, maxRequests=${config.maxAuthzRequests ?? 75}`));
+    console.log('');
+
+    try {
+      const report = await runAuthScan(config);
+
+      if (opts.json) {
+        process.stdout.write(JSON.stringify(report, null, 2));
+        return;
+      }
+
+      printAuthReport(report);
+
+      // Save report
+      const outputDir = path.resolve('.appsec');
+      if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+      fs.writeFileSync(path.join(outputDir, 'auth-report.json'), JSON.stringify(report, null, 2));
+      console.log(`  ${chalk.gray('Report saved:')} ${chalk.cyan(path.join(outputDir, 'auth-report.json'))}`);
+      console.log('');
+
+      process.exit(report.summary.critical > 0 || report.summary.high > 0 ? 1 : 0);
+    } catch (err) {
+      console.error(chalk.red('  Auth scan failed:'), err);
+      process.exit(2);
+    }
+  });
+
+// ── auth sub-commands ────────────────────────────────────────────────────────
+
+const authCmd = program
+  .command('auth')
+  .description('Auth profile management for scan-auth');
+
+authCmd
+  .command('init')
+  .description('Create .appsec/auth-config.json template')
+  .action(() => {
+    const outputDir = path.resolve('.appsec');
+    const configPath = path.join(outputDir, 'auth-config.json');
+
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    if (fs.existsSync(configPath)) {
+      console.log(chalk.yellow(`  auth-config.json already exists: ${configPath}`));
+      return;
+    }
+
+    fs.writeFileSync(configPath, JSON.stringify(AUTH_CONFIG_TEMPLATE, null, 2));
+    console.log('');
+    console.log(chalk.green('  ✅  Created .appsec/auth-config.json'));
+    console.log('');
+    console.log(chalk.gray('  Next steps:'));
+    console.log(`  1. Edit ${chalk.cyan(configPath)} to set baseUrl and profile storageState paths`);
+    console.log('  2. Export storageState for each user (see docs/auth-access-control-scanning.md)');
+    console.log('     OR run: npx tsx --tsconfig scripts/tsconfig.json scripts/setup-auth-profiles.ts');
+    console.log('  3. Run: appsec auth test-config');
+    console.log('  4. Run: appsec scan-auth <url>');
+    console.log('');
+  });
+
+authCmd
+  .command('test-config')
+  .description('Validate auth profiles and test connectivity to the target')
+  .option('--config <path>', 'Path to auth config JSON', '.appsec/auth-config.json')
+  .option('--url <url>', 'Target URL (overrides config baseUrl)')
+  .action(async (opts: { config: string; url?: string }) => {
+    console.log('');
+    const configPath = path.resolve(opts.config);
+    if (!fs.existsSync(configPath)) {
+      console.error(chalk.red(`  auth-config.json not found: ${configPath}`));
+      console.log(chalk.gray(`  Run "appsec auth init" to create a template.`));
+      process.exit(1);
+    }
+
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as AuthScanConfig;
+    const baseUrl = opts.url ?? config.baseUrl;
+
+    console.log(chalk.cyan.bold('  Auth Config Validation'));
+    console.log('');
+    console.log(`  ${chalk.gray('Target:')} ${baseUrl}`);
+    console.log(`  ${chalk.gray('Profiles:')}`);
+
+    let hasErrors = false;
+
+    for (const [name, profile] of Object.entries(config.profiles)) {
+      const storagePath = profile.storageStatePath;
+      if (storagePath) {
+        const resolved = path.resolve(storagePath);
+        if (fs.existsSync(resolved)) {
+          const state = JSON.parse(fs.readFileSync(resolved, 'utf-8')) as { cookies?: unknown[] };
+          const cookieCount = state.cookies?.length ?? 0;
+          console.log(`    ${chalk.green('✓')} ${name.padEnd(12)} storageState — ${cookieCount} cookie(s)`);
+        } else {
+          console.log(`    ${chalk.red('✗')} ${name.padEnd(12)} storageState not found: ${resolved}`);
+          hasErrors = true;
+        }
+      } else if (profile.cookies || profile.headers) {
+        console.log(`    ${chalk.green('✓')} ${name.padEnd(12)} headers/cookies profile`);
+      } else {
+        console.log(`    ${chalk.yellow('~')} ${name.padEnd(12)} no credentials (anonymous)`);
+      }
+    }
+
+    console.log('');
+
+    // Test connectivity
+    try {
+      const res = await fetch(`${baseUrl}/api/auth/me`, { signal: AbortSignal.timeout(5000) });
+      if (res.status === 401 || res.status === 200) {
+        console.log(`  ${chalk.green('✓')} Target is reachable at ${baseUrl}`);
+      } else {
+        console.log(`  ${chalk.yellow('~')} Target responded with status ${res.status}`);
+      }
+    } catch {
+      console.log(`  ${chalk.red('✗')} Cannot reach ${baseUrl} — make sure the app is running`);
+      hasErrors = true;
+    }
+
+    console.log('');
+    if (hasErrors) {
+      console.log(chalk.red('  Validation failed. Fix the errors above before running scan-auth.'));
+      process.exit(1);
+    } else {
+      console.log(chalk.green('  ✅  Auth config is valid. Run: appsec scan-auth <url>'));
+    }
+    console.log('');
   });
 
 // ── dashboard command ────────────────────────────────────────────────────────

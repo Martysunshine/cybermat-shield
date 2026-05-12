@@ -8,3 +8,6 @@ export * from './secrets-engine';
 
 // Runtime engine — public API for Phase 6
 export { RuntimeScanner } from './runtime-engine';
+
+// Authz engine — public API for Phase 7
+export { AuthzScanner } from './authz-engine';
