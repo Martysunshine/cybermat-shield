@@ -4,6 +4,13 @@
 # Intentionally vulnerable example app — never fail CI on test fixtures
 examples/
 
+# Rule engine source code contains intentional insecure examples and secret
+# detection regex patterns — these are the scanner's own rule definitions,
+# not real vulnerabilities
+packages/engines/secrets-engine/
+packages/rules/
+packages/core/src/__tests__/
+
 # Ignore specific rule IDs (uncomment to use)
 # rule:secrets/generic-api-key
 
