@@ -1,5 +1,3 @@
 packages:
   - 'packages/*'
   - 'examples/*'
-allowBuilds:
-  '@prisma/client': true

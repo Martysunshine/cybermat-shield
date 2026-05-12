@@ -1,10 +1,39 @@
 {
   "name": "@cybermat/cli",
   "version": "0.1.0",
+  "description": "CyberMat Shield — local-first application security scanner (static, runtime, auth/access-control)",
+  "keywords": [
+    "security",
+    "appsec",
+    "sast",
+    "scanner",
+    "owasp",
+    "sarif",
+    "cli",
+    "secrets",
+    "xss",
+    "injection"
+  ],
+  "author": "CyberMat Shield Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Martysunshine/cybermat-shield.git"
+  },
+  "homepage": "https://github.com/Martysunshine/cybermat-shield#readme",
+  "bugs": {
+    "url": "https://github.com/Martysunshine/cybermat-shield/issues"
+  },
   "bin": {
     "appsec": "./dist/index.js"
   },
   "main": "dist/index.js",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc && node -e \"const fs=require('fs');const f='dist/index.js';const c=fs.readFileSync(f,'utf8');if(!c.startsWith('#!'))fs.writeFileSync(f,'#!/usr/bin/env node\\n'+c);\"",
     "clean": "rimraf dist"
@@ -20,5 +49,8 @@
     "@types/node": "^20.0.0",
     "rimraf": "^5.0.0",
     "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
