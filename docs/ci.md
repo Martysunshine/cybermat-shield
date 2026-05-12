@@ -9,7 +9,7 @@ CyberMat Shield is designed to run in CI pipelines with zero configuration for b
 The repo ships a ready-to-use workflow at `.github/workflows/appsec-scan.yml`.
 
 It automatically:
-1. Runs `appsec scan .` on every push and pull request
+1. Runs `cybermat scan .` on every push and pull request
 2. Uploads a **SARIF** report to the GitHub Security tab (Code Scanning)
 3. Posts a **findings summary comment** on every pull request
 4. Uploads JSON / HTML / Markdown reports as **Actions artifacts**
@@ -57,7 +57,7 @@ echo "Exit: $?"
 
 Or, once published to npm:
 ```bash
-npx appsec scan . --sarif
+npx cybermat scan . --sarif
 ```
 
 ---
@@ -74,7 +74,7 @@ After your first clean scan, commit the baseline:
 node packages/cli/dist/index.js scan .
 node packages/cli/dist/index.js baseline create
 git add .appsec/baseline.json
-git commit -m "chore: add appsec baseline"
+git commit -m "chore: add cybermat baseline"
 ```
 
 ### Step 2 — Use --ci mode in subsequent scans
@@ -94,7 +94,7 @@ node packages/cli/dist/index.js scan . --ci
 node packages/cli/dist/index.js scan .
 node packages/cli/dist/index.js baseline create
 git add .appsec/baseline.json
-git commit -m "chore: update appsec baseline (fixed N findings)"
+git commit -m "chore: update cybermat baseline (fixed N findings)"
 ```
 
 ---
@@ -105,16 +105,16 @@ Control when CI fails using `--fail-on`:
 
 ```bash
 # Fail only on critical (most lenient)
-appsec scan . --fail-on critical
+cybermat scan . --fail-on critical
 
 # Fail on high or above (default)
-appsec scan . --fail-on high
+cybermat scan . --fail-on high
 
 # Fail on medium or above (strictest for security teams)
-appsec scan . --fail-on medium
+cybermat scan . --fail-on medium
 
 # Never fail CI regardless of findings
-appsec scan . --fail-on none
+cybermat scan . --fail-on none
 ```
 
 Or set it permanently in `appsec.config.json`:
@@ -132,11 +132,11 @@ Any CI system that supports SARIF can import findings:
 
 - **Azure DevOps** — use the [SARIF SAST Scans Tab](https://marketplace.visualstudio.com/items?itemName=sariftools.scans) extension
 - **GitLab** — use `artifacts: reports: sast` in `.gitlab-ci.yml`
-- **Semgrep AppSec Platform** — import via SARIF upload API
+- **Semgrep cybermat Platform** — import via SARIF upload API
 - **Defect Dojo** — import SARIF via the REST API
 
 ```bash
-appsec scan . --sarif
+cybermat scan . --sarif
 # Produces .appsec/report.sarif
 ```
 
@@ -171,6 +171,6 @@ appsec-scan:
 | 500–2000 files | 5–20 seconds |
 | > 2000 files | 20–60 seconds |
 
-Large monorepos: scan only the changed package using `appsec scan packages/my-package`.
+Large monorepos: scan only the changed package using `cybermat scan packages/my-package`.
 
 The runtime scanner (`scan-runtime`) takes 30–120 seconds depending on the number of pages crawled.

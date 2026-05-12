@@ -35,7 +35,7 @@ node packages/cli/dist/index.js scan ./your-project
 
 ```bash
 npm install -g @martysunshine/cybermatshield --registry=https://npm.pkg.github.com
-appsec scan ./your-project
+cybermat scan ./your-project
 ```
 
 > Requires a GitHub account and a personal access token with `read:packages` scope.
@@ -89,41 +89,41 @@ Makes real authenticated requests to find broken access control.
 
 ```bash
 # ── Static scanning ──────────────────────────────────────────
-appsec scan <path>                    # Scan a project directory
-appsec scan <path> --sarif            # Also output SARIF (GitHub Code Scanning)
-appsec scan <path> --markdown         # Also output Markdown report
-appsec scan <path> --fail-on high     # Exit 1 if any HIGH or above findings
-appsec scan <path> --ci               # CI mode — exit 5 if new vs baseline
+cybermat scan <path>                    # Scan a project directory
+cybermat scan <path> --sarif            # Also output SARIF (GitHub Code Scanning)
+cybermat scan <path> --markdown         # Also output Markdown report
+cybermat scan <path> --fail-on high     # Exit 1 if any HIGH or above findings
+cybermat scan <path> --ci               # CI mode — exit 5 if new vs baseline
 
 # ── Runtime scanning ─────────────────────────────────────────
-appsec scan-runtime <url>             # Crawl + probe a live app
-appsec scan-runtime <url> --max-pages 10
+cybermat scan-runtime <url>             # Crawl + probe a live app
+cybermat scan-runtime <url> --max-pages 10
 
 # ── Auth/access-control scanning ─────────────────────────────
-appsec scan-auth <url>                # Run access-control tests
-appsec auth init                      # Create auth config template
-appsec auth test-config               # Validate auth profiles
+cybermat scan-auth <url>                # Run access-control tests
+cybermat auth init                      # Create auth config template
+cybermat auth test-config               # Validate auth profiles
 
 # ── Rules ────────────────────────────────────────────────────
-appsec rules list                     # List all 120+ rules
-appsec rules list --owasp A01         # Filter by OWASP category
-appsec rules list --engine secrets    # Filter by engine
-appsec rules show <id>                # Full rule detail + examples
-appsec rules docs                     # Generate docs/rules.md
+cybermat rules list                     # List all 120+ rules
+cybermat rules list --owasp A01         # Filter by OWASP category
+cybermat rules list --engine secrets    # Filter by engine
+cybermat rules show <id>                # Full rule detail + examples
+cybermat rules docs                     # Generate docs/rules.md
 
 # ── Project setup ────────────────────────────────────────────
-appsec init                           # Create .appsecignore + appsec.config.json
-appsec doctor                         # Check Node, pnpm, Playwright, config
-appsec config validate                # Validate appsec.config.json
+cybermat init                           # Create .appsecignore + appsec.config.json
+cybermat doctor                         # Check Node, pnpm, Playwright, config
+cybermat config validate                # Validate appsec.config.json
 
 # ── Baseline diffing ─────────────────────────────────────────
-appsec baseline create                # Snapshot current findings
-appsec baseline compare               # Show new / fixed / existing vs snapshot
+cybermat baseline create                # Snapshot current findings
+cybermat baseline compare               # Show new / fixed / existing vs snapshot
 
 # ── Reports ──────────────────────────────────────────────────
-appsec report --sarif                 # Generate SARIF from saved report.json
-appsec report --markdown              # Generate Markdown from saved report.json
-appsec report --all                   # Generate all formats
+cybermat report --sarif                 # Generate SARIF from saved report.json
+cybermat report --markdown              # Generate Markdown from saved report.json
+cybermat report --all                   # Generate all formats
 ```
 
 ---
@@ -171,7 +171,7 @@ node packages/cli/dist/index.js scan-auth http://localhost:3000
 
 ## ⚙️ Configuration
 
-Run `appsec init` to create `appsec.config.json`:
+Run `cybermat init` to create `appsec.config.json`:
 
 ```json
 {
@@ -208,7 +208,7 @@ Push the included workflow and get SARIF results in your GitHub Security tab aut
 ```
 
 On every push and PR it will:
-- ✅ Run `appsec scan`
+- ✅ Run `cybermat scan`
 - 📤 Upload SARIF to GitHub Code Scanning
 - 💬 Post a findings summary comment on the PR
 - 🔕 Report findings without blocking CI by default (set `--fail-on high` to enable hard-fail)
@@ -297,7 +297,7 @@ docs/
   product-architecture.md
   internal-architecture.md
   roadmap.md
-  rules.md                        (auto-generated — run appsec rules docs)
+  rules.md                        (auto-generated — run cybermat rules docs)
   auth-access-control-scanning.md
   configuration.md
   ci.md

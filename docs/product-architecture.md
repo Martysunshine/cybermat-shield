@@ -18,7 +18,7 @@ Layer 3 — Auth/Authz Scanner(Phase 7)    🔲 planned
 
 ### Layer 1 — Code Scanner
 
-**Think:** Semgrep + Gitleaks + npm audit + framework-specific AppSec checks.
+**Think:** Semgrep + Gitleaks + npm audit + framework-specific cybermat checks.
 
 **Runs against:** source files on disk. No network, no browser.
 
@@ -152,7 +152,7 @@ packages/
     runtime/          Runtime findings (Phase 6 — empty placeholder)
     authz/            Authz findings (Phase 7 — empty placeholder)
   core/            Scanner orchestrator — runs the full scan pipeline
-  cli/             Commander.js CLI (appsec scan <path>)
+  cli/             Commander.js CLI (cybermat scan <path>)
   dashboard/       React + Vite web dashboard (Phase 8)
 examples/
   vulnerable-next-app/   Intentionally vulnerable test target
@@ -280,7 +280,7 @@ The architecture is designed to plug in additional tools and surfaces without ch
 |---|---|
 | VS Code extension | Consumes `ScanReport` JSON from `.appsec/report.json` |
 | Browser extension | Runs `runtime-scanner` engine headlessly |
-| GitHub Action | `appsec scan .` + SARIF upload to GitHub code scanning |
+| GitHub Action | `cybermat scan .` + SARIF upload to GitHub code scanning |
 | Cloud dashboard | Receives `ScanReport` via secure upload (opt-in) |
 | Semgrep adapter | `ExternalToolAdapter` + `normalize()` → `Finding[]` |
 | Gitleaks adapter | `ExternalToolAdapter` + `normalize()` → `Finding[]` |

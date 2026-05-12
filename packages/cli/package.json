@@ -29,8 +29,7 @@
     "access": "public"
   },
   "bin": {
-    "cybermat": "./dist/index.js",
-    "appsec": "./dist/index.js"
+    "cybermat": "./dist/index.js"
   },
   "main": "dist/index.js",
   "files": [

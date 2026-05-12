@@ -367,9 +367,9 @@ program
     console.log(chalk.green('  ✅  CyberMat Shield initialized.'));
     console.log('');
     console.log(chalk.gray('  Next steps:'));
-    console.log('  1. Run: ' + chalk.cyan('appsec scan <path>'));
-    console.log('  2. Run: ' + chalk.cyan('appsec doctor') + '  — check environment');
-    console.log('  3. Run: ' + chalk.cyan('appsec rules list') + '  — browse 95 security rules');
+    console.log('  1. Run: ' + chalk.cyan('cybermat scan <path>'));
+    console.log('  2. Run: ' + chalk.cyan('cybermat doctor') + '  — check environment');
+    console.log('  3. Run: ' + chalk.cyan('cybermat rules list') + '  — browse 95 security rules');
     console.log('');
   });
 
@@ -420,7 +420,7 @@ program
       warn('Playwright check failed', 'Run: npx playwright install chromium');
     }
 
-    // .appsec dir writable
+    // .cybermat dir writable
     const appsecDir = path.resolve('.appsec');
     try {
       if (!fs.existsSync(appsecDir)) fs.mkdirSync(appsecDir, { recursive: true });
@@ -439,10 +439,10 @@ program
         JSON.parse(fs.readFileSync(configPath, 'utf-8'));
         check('appsec.config.json', true, 'Valid JSON');
       } catch {
-        check('appsec.config.json', false, 'Invalid JSON — run: appsec config validate');
+        check('appsec.config.json', false, 'Invalid JSON — run: cybermat config validate');
       }
     } else {
-      warn('appsec.config.json not found', 'Run: appsec init');
+      warn('appsec.config.json not found', 'Run: cybermat init');
     }
 
     // .appsecignore
@@ -450,7 +450,7 @@ program
     if (fs.existsSync(ignorePath)) {
       check('.appsecignore', true, 'Present');
     } else {
-      warn('.appsecignore not found', 'Run: appsec init');
+      warn('.appsecignore not found', 'Run: cybermat init');
     }
 
     // Rule registry
@@ -475,7 +475,7 @@ program
     if (baseline) {
       check(`Baseline — ${baseline.entries.length} entries from ${baseline.createdAt.split('T')[0]}`, true);
     } else {
-      warn('No baseline found', 'Run: appsec baseline create');
+      warn('No baseline found', 'Run: cybermat baseline create');
     }
 
     console.log('');
@@ -498,7 +498,7 @@ program
     const configPath = path.resolve(opts.config);
     if (!fs.existsSync(configPath)) {
       console.error(chalk.red(`  Config not found: ${configPath}`));
-      console.log(chalk.gray('  Run: appsec init'));
+      console.log(chalk.gray('  Run: cybermat init'));
       process.exit(3);
     }
 
@@ -583,7 +583,7 @@ program
         if (bl) {
           diff = compareToBaseline(report, bl);
         } else {
-          console.log(chalk.yellow('  No baseline found — skipping comparison. Run: appsec baseline create'));
+          console.log(chalk.yellow('  No baseline found — skipping comparison. Run: cybermat baseline create'));
           console.log('');
         }
       }
@@ -674,7 +674,7 @@ baselineCmd
 
     if (!fs.existsSync(reportPath)) {
       console.error(chalk.red(`  report.json not found in ${outputDir}`));
-      console.log(chalk.gray('  Run a scan first: appsec scan <path>'));
+      console.log(chalk.gray('  Run a scan first: cybermat scan <path>'));
       process.exit(3);
     }
 
@@ -705,7 +705,7 @@ baselineCmd
     const baseline = loadBaseline(outputDir);
     if (!baseline) {
       console.error(chalk.red(`  baseline.json not found in ${outputDir}`));
-      console.log(chalk.gray('  Run: appsec baseline create'));
+      console.log(chalk.gray('  Run: cybermat baseline create'));
       process.exit(3);
     }
 
@@ -756,7 +756,7 @@ program
 
     if (!fs.existsSync(reportPath)) {
       console.error(chalk.red(`  report.json not found in ${outputDir}`));
-      console.log(chalk.gray('  Run a scan first: appsec scan <path>'));
+      console.log(chalk.gray('  Run a scan first: cybermat scan <path>'));
       process.exit(3);
     }
 
@@ -835,7 +835,7 @@ rulesCmd
     const rule = defaultRegistry.getRuleById(ruleId);
     if (!rule) {
       console.error(chalk.red(`  Rule not found: ${ruleId}`));
-      console.log(chalk.gray(`  Run "appsec rules list" to see all available rule IDs.`));
+      console.log(chalk.gray(`  Run "cybermat rules list" to see all available rule IDs.`));
       process.exit(1);
     }
 
@@ -1162,7 +1162,7 @@ program
       config.baseUrl = url;
     } else {
       console.log(chalk.gray(`  No auth-config.json found. Using defaults.`));
-      console.log(chalk.gray(`  Run "appsec auth init" to create a config template.`));
+      console.log(chalk.gray(`  Run "cybermat auth init" to create a config template.`));
       console.log('');
       config = { ...AUTH_CONFIG_TEMPLATE, baseUrl: url };
     }
@@ -1220,8 +1220,8 @@ authCmd
     console.log(chalk.gray('  Next steps:'));
     console.log(`  1. Edit ${chalk.cyan(configPath)} to set baseUrl and profile paths`);
     console.log('  2. Run: npx tsx --tsconfig scripts/tsconfig.json scripts/setup-auth-profiles.ts');
-    console.log('  3. Run: appsec auth test-config');
-    console.log('  4. Run: appsec scan-auth <url>');
+    console.log('  3. Run: cybermat auth test-config');
+    console.log('  4. Run: cybermat scan-auth <url>');
     console.log('');
   });
 
@@ -1235,7 +1235,7 @@ authCmd
     const configPath = path.resolve(opts.config);
     if (!fs.existsSync(configPath)) {
       console.error(chalk.red(`  auth-config.json not found: ${configPath}`));
-      console.log(chalk.gray(`  Run "appsec auth init" to create a template.`));
+      console.log(chalk.gray(`  Run "cybermat auth init" to create a template.`));
       process.exit(3);
     }
 
@@ -1287,7 +1287,7 @@ authCmd
       console.log(chalk.red('  Validation failed. Fix the errors above before running scan-auth.'));
       process.exit(3);
     } else {
-      console.log(chalk.green('  ✅  Auth config is valid. Run: appsec scan-auth <url>'));
+      console.log(chalk.green('  ✅  Auth config is valid. Run: cybermat scan-auth <url>'));
     }
     console.log('');
   });
@@ -1298,7 +1298,7 @@ program
   .description('Open the security dashboard')
   .action(() => {
     console.log(chalk.yellow('  Open .appsec/report.html in your browser for the interactive dashboard.'));
-    console.log(chalk.gray('  Or run: appsec report --markdown --sarif  to generate additional formats.'));
+    console.log(chalk.gray('  Or run: cybermat report --markdown --sarif  to generate additional formats.'));
   });
 
 program.parse(process.argv);

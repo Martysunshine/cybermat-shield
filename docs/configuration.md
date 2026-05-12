@@ -1,6 +1,6 @@
 # Configuration Reference
 
-CyberMat Shield reads configuration from `appsec.config.json` in the project root. Run `appsec init` to create it.
+CyberMat Shield reads configuration from `appsec.config.json` in the project root. Run `cybermat init` to create it.
 
 ---
 
@@ -59,7 +59,7 @@ CyberMat Shield reads configuration from `appsec.config.json` in the project roo
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `disabled` | string[] | Rule IDs to disable. See `appsec rules list` for all IDs. |
+| `disabled` | string[] | Rule IDs to disable. See `cybermat rules list` for all IDs. |
 | `enabled` | string[] | Rule IDs to enable (for rules disabled by default) |
 | `severityOverrides` | `{[ruleId]: Severity}` | Override the severity of specific rules |
 
@@ -126,7 +126,7 @@ See [auth-access-control-scanning.md](auth-access-control-scanning.md) for the f
 ## Validate your config
 
 ```bash
-appsec config validate
+cybermat config validate
 ```
 
 This parses the JSON, checks required fields, and reports any errors.

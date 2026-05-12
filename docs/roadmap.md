@@ -20,7 +20,7 @@ Static analysis of source files. No browser, no network.
 - [x] Import graph analysis (client/server boundary violations)
 - [x] AST source/sink correlation
 - [x] Full OWASP/CWE/ASVS/WSTG metadata on every rule
-- [x] Rule registry + `appsec rules list/show/docs` CLI
+- [x] Rule registry + `cybermat rules list/show/docs` CLI
 - [x] .appsecignore support (ignore by file path, rule ID, fingerprint)
 - [x] HTML + JSON reports with redacted evidence
 - [x] Risk score 0–100 with OWASP Top 10:2025 coverage
@@ -37,7 +37,7 @@ Safe DAST-style scanning of a running app via Playwright.
 
 **Requires:** `npx playwright install chromium`
 
-- [x] `appsec scan-runtime <url>` CLI command
+- [x] `cybermat scan-runtime <url>` CLI command
 - [x] Playwright crawler with same-origin scope enforcement
 - [x] HTTP security header analysis (CSP, HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy)
 - [x] Cookie flag analysis (HttpOnly, Secure, SameSite, JWT-like values)
@@ -57,9 +57,9 @@ Controlled access-control testing using user-provided auth profiles.
 
 **Requires:** User creates test accounts and exports Playwright `storageState`.
 
-- [x] `appsec auth init` — create auth config template
-- [x] `appsec auth test-config` — validate auth profiles and connectivity
-- [x] `appsec scan-auth <url>` CLI command
+- [x] `cybermat auth init` — create auth config template
+- [x] `cybermat auth test-config` — validate auth profiles and connectivity
+- [x] `cybermat scan-auth <url>` CLI command
 - [x] Anonymous access testing (protected routes return 200 without credentials)
 - [x] Vertical privilege testing (low-privileged user accessing admin routes)
 - [x] Horizontal IDOR/BOLA testing (userA accessing userB's resources)
@@ -79,11 +79,11 @@ Making the scanner production-ready for CI/CD and team use.
 - [x] SARIF 2.1.0 output (compatible with GitHub code scanning)
 - [x] Markdown report format
 - [x] Baseline diffing (`.appsec/baseline.json` — new/existing/fixed per finding)
-- [x] `appsec baseline create` / `appsec baseline compare`
-- [x] `appsec init` — initialize project config, .appsecignore, .gitignore entries
-- [x] `appsec doctor` — checks Node, pnpm, Playwright, config validity
-- [x] `appsec config validate` — validate appsec.config.json
-- [x] `appsec report` — generate SARIF/Markdown from saved JSON report
+- [x] `cybermat baseline create` / `cybermat baseline compare`
+- [x] `cybermat init` — initialize project config, .appsecignore, .gitignore entries
+- [x] `cybermat doctor` — checks Node, pnpm, Playwright, config validity
+- [x] `cybermat config validate` — validate appsec.config.json
+- [x] `cybermat report` — generate SARIF/Markdown from saved JSON report
 - [x] GitHub Actions workflow with SARIF upload and PR comments
 - [x] Stable exit codes: 0 clean, 1 findings, 2 error, 3 config error, 4 missing dep, 5 new baseline findings
 - [x] CHANGELOG.md, LICENSE, CONTRIBUTING.md, SECURITY.md
@@ -95,7 +95,7 @@ Making the scanner production-ready for CI/CD and team use.
 
 Extensions beyond the core CLI tool.
 
-- [ ] **npm publish** — public `npx appsec-shield` install (no auth required)
+- [ ] **npm publish** — public `npx cybermat` install (no auth required)
 - [ ] VS Code extension (inline findings, quick-fix suggestions)
 - [ ] Browser extension (runtime scanning from the browser)
 - [ ] Signed rule pack updates (verified community rule packs)

@@ -2,7 +2,7 @@
 
 ## Scanner Pipeline
 
-Every `appsec scan <path>` invocation runs through the following sequential pipeline inside `packages/core/src/scanner.ts`:
+Every `cybermat scan <path>` invocation runs through the following sequential pipeline inside `packages/core/src/scanner.ts`:
 
 ```
 loadConfig()

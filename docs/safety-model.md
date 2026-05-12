@@ -79,5 +79,5 @@ CyberMat Shield checks that **your code enforces authorization** — but it is n
 1. Only scanning applications you own or have explicit written permission to test
 2. Using dedicated test accounts (never real user sessions) for `scan-auth`
 3. Running `scan-runtime` only against localhost or explicitly approved staging environments
-4. Keeping `.appsec/auth/` storageState files out of version control (the tool appends this to `.gitignore` automatically via `appsec init`)
+4. Keeping `.appsec/auth/` storageState files out of version control (the tool appends this to `.gitignore` automatically via `cybermat init`)
 5. Not sharing scan reports that contain sensitive application structure or route information
