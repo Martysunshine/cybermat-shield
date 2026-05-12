@@ -12,3 +12,5 @@ dist/
 # Internal build specs and AI session data — kept locally only
 readmeprompt*.md
 .claude/
+demo.tape
+docs/demo.cast

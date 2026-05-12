@@ -7,6 +7,8 @@
 [![OWASP Top 10:2025](https://img.shields.io/badge/OWASP-Top%2010%3A2025-orange)](docs/rules.md)
 [![Node ≥18](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
 
+![CyberMat Shield demo](docs/demo.svg)
+
 ---
 
 ## ✨ What makes it different?
