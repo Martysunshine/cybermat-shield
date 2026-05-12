@@ -18,7 +18,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Martysunshine/cybermat-shield.git"
+    "url": "git+https://github.com/Martysunshine/cybermat-shield.git"
   },
   "homepage": "https://github.com/Martysunshine/cybermat-shield#readme",
   "bugs": {

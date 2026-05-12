@@ -22,7 +22,20 @@
 
 ## 🚀 Quick Start
 
-### Build from source (recommended until npm package is published)
+```bash
+npx cybermat scan ./your-project
+```
+
+No install required. Node ≥18.
+
+### Install globally
+
+```bash
+npm install -g cybermat
+cybermat scan ./your-project
+```
+
+### Build from source
 
 ```bash
 git clone https://github.com/Martysunshine/cybermat-shield.git
@@ -30,17 +43,6 @@ cd cybermat-shield
 pnpm install && pnpm build
 node packages/cli/dist/index.js scan ./your-project
 ```
-
-### Install from GitHub Packages
-
-```bash
-npm install -g @martysunshine/cybermatshield --registry=https://npm.pkg.github.com
-cybermat scan ./your-project
-```
-
-> Requires a GitHub account and a personal access token with `read:packages` scope.
-
-> **Coming soon:** Public npm package — `npx cybermat scan ./your-project` with no auth required.
 
 ---
 
