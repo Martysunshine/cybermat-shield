@@ -1,5 +1,5 @@
 {
-  "name": "@martysunshine/cli",
+  "name": "@martysunshine/cybermatshield",
   "version": "0.1.0",
   "description": "CyberMat Shield — local-first application security scanner (static, runtime, auth/access-control)",
   "keywords": [
