@@ -3,9 +3,27 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import * as path from 'path';
 import * as fs from 'fs';
-import type { ScanReport, Finding, Severity, RuleMetadata, RuleEngine, RuntimeScanReport, RuntimeFinding, AuthScanReport, AuthzFinding, AuthScanConfig } from '@cybermat/shared';
-import { runScan, runRuntimeScan, runAuthScan } from '@cybermat/core';
+import * as os from 'os';
+import * as childProcess from 'child_process';
+import type {
+  ScanReport, Finding, Severity, RuleMetadata, RuleEngine,
+  RuntimeScanReport, RuntimeFinding, AuthScanReport, AuthzFinding, AuthScanConfig,
+} from '@cybermat/shared';
+import {
+  runScan, runRuntimeScan, runAuthScan,
+  generateSarif, generateMarkdown, writeReports,
+  createBaseline, compareToBaseline, saveBaseline, loadBaseline,
+} from '@cybermat/core';
+import type { BaselineDiff } from '@cybermat/core';
 import { allRules, defaultRegistry } from '@cybermat/rules';
+
+// ─── Exit codes ──────────────────────────────────────────────────────────────
+// 0 = clean / success
+// 1 = critical or high findings detected
+// 2 = scan / runtime error
+// 3 = config / validation error
+// 4 = missing dependency (doctor)
+// 5 = new findings compared to baseline (CI mode)
 
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8')) as { version: string };
 
@@ -52,7 +70,7 @@ function printFinding(f: Finding, index: number): void {
   console.log('');
 }
 
-function printReport(report: ScanReport): void {
+function printReport(report: ScanReport, diff?: BaselineDiff): void {
   const { summary, riskScore, detectedStack, findings, filesScanned, filesIgnored } = report;
 
   const stackStr = [
@@ -64,6 +82,11 @@ function printReport(report: ScanReport): void {
   console.log(`  ${chalk.gray('Target:')}  ${chalk.white(report.scannedPath)}`);
   console.log(`  ${chalk.gray('Files:')}   ${chalk.white(String(filesScanned))} scanned, ${chalk.gray(String(filesIgnored))} ignored`);
   console.log(`  ${chalk.gray('Stack:')}   ${chalk.cyan(stackStr)}`);
+
+  if (diff) {
+    console.log(`  ${chalk.gray('Baseline:')} ${chalk.green(`${diff.summary.existing} existing`)} ${chalk.red(`${diff.summary.new} new`)} ${chalk.gray(`${diff.summary.fixed} fixed`)}`);
+  }
+
   console.log('');
   console.log(chalk.gray('  ─────────────────────────────────────────────'));
   console.log('');
@@ -80,6 +103,8 @@ function printReport(report: ScanReport): void {
       console.log(`  ${heading}`);
       console.log('');
       for (const f of group) {
+        const isNew = diff ? diff.newFindings.some(n => n.id === f.id) : false;
+        if (isNew) process.stdout.write(chalk.yellow('  ★ NEW  '));
         printFinding(f, idx++);
       }
     }
@@ -136,8 +161,8 @@ function generateRulesDocs(rules: RuleMetadata[]): string {
     config: 'Configuration',
     dependency: 'Supply Chain',
     ai: 'AI Security',
-    runtime: 'Runtime Scanner (Phase 6)',
-    authz: 'Auth/Access Control Scanner (Phase 7)',
+    runtime: 'Runtime Scanner',
+    authz: 'Auth/Access Control Scanner',
   };
 
   const lines: string[] = [
@@ -238,14 +263,281 @@ program
   .description('CyberMat Shield — Local-first Application Security Scanner')
   .version(pkg.version);
 
+// ── init command ─────────────────────────────────────────────────────────────
+program
+  .command('init')
+  .description('Initialize CyberMat Shield in the current project')
+  .action(() => {
+    console.log('');
+    console.log(chalk.cyan.bold('  Initializing CyberMat Shield...'));
+    console.log('');
+
+    const appsecDir = path.resolve('.appsec');
+    if (!fs.existsSync(appsecDir)) {
+      fs.mkdirSync(appsecDir, { recursive: true });
+      console.log(`  ${chalk.green('✓')} Created .appsec/`);
+    } else {
+      console.log(`  ${chalk.gray('~')} .appsec/ already exists`);
+    }
+
+    // .appsecignore
+    const ignorePath = path.resolve('.appsecignore');
+    if (!fs.existsSync(ignorePath)) {
+      fs.writeFileSync(ignorePath, [
+        '# CyberMat Shield ignore file',
+        '# Paths, rule IDs, or finding fingerprints to suppress',
+        '',
+        '# Ignore entire directories',
+        '# node_modules/',
+        '# .next/',
+        '',
+        '# Ignore specific rule IDs',
+        '# rule:secrets/generic-api-key',
+        '',
+        '# Ignore specific fingerprints (copy from report.json)',
+        '# fp:abc123...',
+        '',
+      ].join('\n'));
+      console.log(`  ${chalk.green('✓')} Created .appsecignore`);
+    } else {
+      console.log(`  ${chalk.gray('~')} .appsecignore already exists`);
+    }
+
+    // appsec.config.json
+    const configPath = path.resolve('appsec.config.json');
+    if (!fs.existsSync(configPath)) {
+      const config = {
+        $schema: 'https://raw.githubusercontent.com/Martysunshine/cybermat-shield/main/schema/appsec-config.schema.json',
+        version: 1,
+        outputDir: '.appsec',
+        failOn: 'high',
+        rules: {
+          disabled: [],
+          severityOverrides: {},
+        },
+        scan: {
+          maxFileSizeKb: 512,
+          skipDirs: ['node_modules', '.git', '.next', 'dist', 'build', 'coverage'],
+        },
+        runtime: {
+          maxPages: 20,
+          maxDepth: 3,
+          requestDelayMs: 150,
+          timeoutMs: 15000,
+        },
+        baseline: {
+          enabled: false,
+          failOnNew: true,
+        },
+      };
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      console.log(`  ${chalk.green('✓')} Created appsec.config.json`);
+    } else {
+      console.log(`  ${chalk.gray('~')} appsec.config.json already exists`);
+    }
+
+    // .gitignore entry
+    const gitignorePath = path.resolve('.gitignore');
+    if (fs.existsSync(gitignorePath)) {
+      const content = fs.readFileSync(gitignorePath, 'utf-8');
+      const linesToAdd: string[] = [];
+      if (!content.includes('.appsec/auth/')) linesToAdd.push('.appsec/auth/');
+      if (!content.includes('*.storage.json')) linesToAdd.push('*.storage.json');
+      if (linesToAdd.length > 0) {
+        fs.appendFileSync(gitignorePath, `\n# CyberMat Shield — session tokens (never commit)\n${linesToAdd.join('\n')}\n`);
+        console.log(`  ${chalk.green('✓')} Added .appsec/auth/ to .gitignore`);
+      }
+    }
+
+    console.log('');
+    console.log(chalk.green('  ✅  CyberMat Shield initialized.'));
+    console.log('');
+    console.log(chalk.gray('  Next steps:'));
+    console.log('  1. Run: ' + chalk.cyan('appsec scan <path>'));
+    console.log('  2. Run: ' + chalk.cyan('appsec doctor') + '  — check environment');
+    console.log('  3. Run: ' + chalk.cyan('appsec rules list') + '  — browse 95 security rules');
+    console.log('');
+  });
+
+// ── doctor command ────────────────────────────────────────────────────────────
+program
+  .command('doctor')
+  .description('Check environment dependencies and configuration')
+  .action(async () => {
+    console.log('');
+    console.log(chalk.cyan.bold('  CyberMat Shield — Environment Check'));
+    console.log('');
+
+    let allOk = true;
+
+    function check(label: string, ok: boolean, detail?: string): void {
+      const icon = ok ? chalk.green('✓') : chalk.red('✗');
+      const msg = ok ? chalk.white(label) : chalk.red(label);
+      console.log(`  ${icon}  ${msg}${detail ? chalk.gray(` — ${detail}`) : ''}`);
+      if (!ok) allOk = false;
+    }
+
+    function warn(label: string, detail?: string): void {
+      console.log(`  ${chalk.yellow('~')}  ${chalk.yellow(label)}${detail ? chalk.gray(` — ${detail}`) : ''}`);
+    }
+
+    // Node version
+    const nodeVersion = process.version;
+    const nodeOk = parseInt(nodeVersion.slice(1)) >= 18;
+    check(`Node.js ${nodeVersion}`, nodeOk, nodeOk ? undefined : 'Requires Node 18+');
+
+    // pnpm
+    try {
+      const pnpmOut = childProcess.execSync('pnpm --version', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+      check(`pnpm ${pnpmOut}`, true);
+    } catch {
+      warn('pnpm not found', 'Install with: npm install -g pnpm');
+    }
+
+    // Playwright chromium
+    try {
+      const playwrightOut = childProcess.execSync(
+        'node -e "const {chromium}=require(\'playwright\');chromium.executablePath().then(p=>console.log(p)).catch(()=>console.log(\'missing\'))"',
+        { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], cwd: path.resolve('.') }
+      ).trim();
+      const playwrightOk = !playwrightOut.includes('missing') && fs.existsSync(playwrightOut);
+      check('Playwright chromium browser', playwrightOk, playwrightOk ? 'Ready for runtime scanning' : 'Run: npx playwright install chromium');
+    } catch {
+      warn('Playwright check failed', 'Run: npx playwright install chromium');
+    }
+
+    // .appsec dir writable
+    const appsecDir = path.resolve('.appsec');
+    try {
+      if (!fs.existsSync(appsecDir)) fs.mkdirSync(appsecDir, { recursive: true });
+      const testFile = path.join(appsecDir, '.write-test');
+      fs.writeFileSync(testFile, '');
+      fs.unlinkSync(testFile);
+      check('.appsec/ is writable', true);
+    } catch {
+      check('.appsec/ is writable', false, 'Check directory permissions');
+    }
+
+    // Config file
+    const configPath = path.resolve('appsec.config.json');
+    if (fs.existsSync(configPath)) {
+      try {
+        JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+        check('appsec.config.json', true, 'Valid JSON');
+      } catch {
+        check('appsec.config.json', false, 'Invalid JSON — run: appsec config validate');
+      }
+    } else {
+      warn('appsec.config.json not found', 'Run: appsec init');
+    }
+
+    // .appsecignore
+    const ignorePath = path.resolve('.appsecignore');
+    if (fs.existsSync(ignorePath)) {
+      check('.appsecignore', true, 'Present');
+    } else {
+      warn('.appsecignore not found', 'Run: appsec init');
+    }
+
+    // Rule registry
+    const ruleCount = defaultRegistry.listRules().length;
+    check(`Rule registry — ${ruleCount} rules loaded`, ruleCount > 0);
+
+    // Auth profiles (optional)
+    const authDir = path.resolve('.appsec/auth');
+    if (fs.existsSync(authDir)) {
+      const storageFiles = fs.readdirSync(authDir).filter(f => f.endsWith('.storage.json'));
+      if (storageFiles.length > 0) {
+        check(`Auth profiles — ${storageFiles.length} storageState file(s)`, true);
+      } else {
+        warn('No storageState files in .appsec/auth/', 'Run: npx tsx scripts/setup-auth-profiles.ts');
+      }
+    } else {
+      warn('.appsec/auth/ not found', 'Optional — needed for scan-auth');
+    }
+
+    // Baseline
+    const baseline = loadBaseline(appsecDir);
+    if (baseline) {
+      check(`Baseline — ${baseline.entries.length} entries from ${baseline.createdAt.split('T')[0]}`, true);
+    } else {
+      warn('No baseline found', 'Run: appsec baseline create');
+    }
+
+    console.log('');
+    if (allOk) {
+      console.log(chalk.green('  ✅  All checks passed. CyberMat Shield is ready.'));
+    } else {
+      console.log(chalk.red('  ✗  Some checks failed. Fix the issues above.'));
+      process.exit(4);
+    }
+    console.log('');
+  });
+
+// ── config validate command ───────────────────────────────────────────────────
+program
+  .command('config validate')
+  .description('Validate appsec.config.json')
+  .option('--config <path>', 'Path to config file', 'appsec.config.json')
+  .action((opts: { config: string }) => {
+    console.log('');
+    const configPath = path.resolve(opts.config);
+    if (!fs.existsSync(configPath)) {
+      console.error(chalk.red(`  Config not found: ${configPath}`));
+      console.log(chalk.gray('  Run: appsec init'));
+      process.exit(3);
+    }
+
+    let config: Record<string, unknown>;
+    try {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+    } catch (err) {
+      console.error(chalk.red(`  Invalid JSON in ${configPath}: ${(err as Error).message}`));
+      process.exit(3);
+    }
+
+    const issues: string[] = [];
+    const warns: string[] = [];
+
+    if (config['version'] !== 1) issues.push('version must be 1');
+    if (config['failOn'] && !['critical', 'high', 'medium', 'low', 'info', 'none'].includes(config['failOn'] as string)) {
+      issues.push('failOn must be one of: critical, high, medium, low, info, none');
+    }
+
+    const rules = config['rules'] as Record<string, unknown> | undefined;
+    if (rules) {
+      if (rules['disabled'] && !Array.isArray(rules['disabled'])) issues.push('rules.disabled must be an array');
+      if (rules['severityOverrides'] && typeof rules['severityOverrides'] !== 'object') {
+        issues.push('rules.severityOverrides must be an object');
+      }
+    }
+
+    if (issues.length === 0) {
+      console.log(chalk.green(`  ✅  ${opts.config} is valid`));
+      warns.forEach(w => console.log(`  ${chalk.yellow('~')} ${w}`));
+    } else {
+      console.log(chalk.red(`  ✗  ${opts.config} has errors:`));
+      issues.forEach(i => console.log(`     ${chalk.red('•')} ${i}`));
+      process.exit(3);
+    }
+    console.log('');
+  });
+
 // ── scan command ────────────────────────────────────────────────────────────
 program
   .command('scan <path>')
   .description('Scan a project directory for security issues')
   .option('--json', 'Output full JSON report to stdout')
-  .option('--html', 'Open HTML report after scan (not yet implemented)')
+  .option('--sarif', 'Write SARIF report to .appsec/report.sarif')
+  .option('--markdown', 'Write Markdown report to .appsec/report.md')
   .option('--output-dir <dir>', 'Output directory for reports', '.appsec')
-  .action(async (targetPath: string, opts: { json?: boolean; html?: boolean; outputDir?: string }) => {
+  .option('--fail-on <severity>', 'Exit 1 when findings at or above this severity exist (critical|high|medium|low|info|none)', 'high')
+  .option('--baseline', 'Compare to .appsec/baseline.json and annotate new vs existing findings')
+  .option('--ci', 'Exit code 5 if new findings compared to baseline (implies --baseline)')
+  .action(async (targetPath: string, opts: {
+    json?: boolean; sarif?: boolean; markdown?: boolean;
+    outputDir?: string; failOn?: string; baseline?: boolean; ci?: boolean;
+  }) => {
     printBanner();
 
     const absolutePath = path.resolve(targetPath);
@@ -262,21 +554,189 @@ program
         outputDir: opts.outputDir,
       });
 
+      // Output dir is relative to the scanned path (where JSON/HTML also go)
+      const outputDir = path.join(absolutePath, opts.outputDir ?? '.appsec');
+
+      // Baseline comparison
+      let diff: BaselineDiff | undefined;
+      if (opts.ci || opts.baseline) {
+        const bl = loadBaseline(outputDir);
+        if (bl) {
+          diff = compareToBaseline(report, bl);
+        } else {
+          console.log(chalk.yellow('  No baseline found — skipping comparison. Run: appsec baseline create'));
+          console.log('');
+        }
+      }
+
       if (opts.json) {
         process.stdout.write(JSON.stringify(report, null, 2));
         return;
       }
 
-      printReport(report);
+      printReport(report, diff);
 
-      const hasCritical = report.summary.critical > 0;
-      const hasHigh = report.summary.high > 0;
-      process.exit(hasCritical || hasHigh ? 1 : 0);
+      // Write extra formats
+      if (opts.sarif) {
+        const sarifPath = path.join(outputDir, 'report.sarif');
+        fs.writeFileSync(sarifPath, generateSarif(report));
+        console.log(`    ${chalk.cyan(sarifPath)}`);
+      }
+      if (opts.markdown) {
+        const mdPath = path.join(outputDir, 'report.md');
+        fs.writeFileSync(mdPath, generateMarkdown(report));
+        console.log(`    ${chalk.cyan(mdPath)}`);
+      }
+
+      // Exit code logic
+      const failOn = (opts.failOn ?? 'high') as Severity | 'none';
+      const sevOrder = ['critical', 'high', 'medium', 'low', 'info'];
+
+      if (opts.ci && diff && diff.summary.new > 0) {
+        console.log(chalk.red(`  ✗  ${diff.summary.new} new finding(s) vs baseline. CI failed.`));
+        console.log('');
+        process.exit(5);
+      }
+
+      if (failOn !== 'none') {
+        const threshold = sevOrder.indexOf(failOn);
+        const sum = report.summary as unknown as Record<string, number>;
+        const hasFail = SEVERITY_ORDER.slice(0, threshold + 1).some(s => sum[s] > 0);
+        if (hasFail) process.exit(1);
+      }
+
+      process.exit(0);
 
     } catch (err) {
       console.error(chalk.red('  Scan failed:'), err);
       process.exit(2);
     }
+  });
+
+// ── baseline commands ─────────────────────────────────────────────────────────
+const baselineCmd = program
+  .command('baseline')
+  .description('Manage scan baselines for CI diffing');
+
+baselineCmd
+  .command('create')
+  .description('Create a baseline from the last scan report')
+  .option('--output-dir <dir>', 'Directory containing report.json', '.appsec')
+  .action((opts: { outputDir: string }) => {
+    console.log('');
+    const outputDir = path.resolve(opts.outputDir);
+    const reportPath = path.join(outputDir, 'report.json');
+
+    if (!fs.existsSync(reportPath)) {
+      console.error(chalk.red(`  report.json not found in ${outputDir}`));
+      console.log(chalk.gray('  Run a scan first: appsec scan <path>'));
+      process.exit(3);
+    }
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf-8')) as ScanReport;
+    const baseline = createBaseline(report);
+    const savedPath = saveBaseline(baseline, outputDir);
+
+    console.log(chalk.green(`  ✅  Baseline created: ${savedPath}`));
+    console.log(`  ${chalk.gray('Entries:')} ${baseline.entries.length} findings fingerprinted`);
+    console.log(`  ${chalk.gray('Tip:')} Commit ${savedPath} to track security regressions in CI.`);
+    console.log('');
+  });
+
+baselineCmd
+  .command('compare')
+  .description('Compare the last scan report to the current baseline')
+  .option('--output-dir <dir>', 'Directory containing report.json and baseline.json', '.appsec')
+  .action((opts: { outputDir: string }) => {
+    console.log('');
+    const outputDir = path.resolve(opts.outputDir);
+    const reportPath = path.join(outputDir, 'report.json');
+
+    if (!fs.existsSync(reportPath)) {
+      console.error(chalk.red(`  report.json not found in ${outputDir}`));
+      process.exit(3);
+    }
+
+    const baseline = loadBaseline(outputDir);
+    if (!baseline) {
+      console.error(chalk.red(`  baseline.json not found in ${outputDir}`));
+      console.log(chalk.gray('  Run: appsec baseline create'));
+      process.exit(3);
+    }
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf-8')) as ScanReport;
+    const diff = compareToBaseline(report, baseline);
+
+    console.log(chalk.cyan.bold('  Baseline Comparison'));
+    console.log('');
+    console.log(`  ${chalk.gray('Baseline date:')} ${baseline.createdAt.split('T')[0]}`);
+    console.log(`  ${chalk.gray('Baseline entries:')} ${baseline.entries.length}`);
+    console.log('');
+    console.log(`  ${chalk.red(`✗ New findings:      ${diff.summary.new}`)}`);
+    console.log(`  ${chalk.gray(`~ Existing findings: ${diff.summary.existing}`)}`);
+    console.log(`  ${chalk.green(`✓ Fixed findings:    ${diff.summary.fixed}`)}`);
+    console.log('');
+
+    if (diff.newFindings.length > 0) {
+      console.log(chalk.red('  New findings (not in baseline):'));
+      diff.newFindings.forEach((f, i) => {
+        const sev = SEVERITY_CHALK[f.severity](`[${f.severity.toUpperCase()}]`);
+        const loc = f.file ? `${f.file}${f.line ? `:${f.line}` : ''}` : '';
+        console.log(`  ${i + 1}. ${sev} ${f.title}${loc ? chalk.gray(` — ${loc}`) : ''}`);
+      });
+      console.log('');
+    }
+
+    if (diff.fixedEntries.length > 0) {
+      console.log(chalk.green('  Fixed since baseline:'));
+      diff.fixedEntries.forEach((e, i) => {
+        console.log(`  ${i + 1}. ${chalk.green('✓')} ${e.ruleId} — ${e.title}`);
+      });
+      console.log('');
+    }
+  });
+
+// ── report command ────────────────────────────────────────────────────────────
+program
+  .command('report')
+  .description('Generate additional report formats from the last scan')
+  .option('--output-dir <dir>', 'Directory containing report.json', '.appsec')
+  .option('--sarif', 'Write SARIF report')
+  .option('--markdown', 'Write Markdown report')
+  .option('--all', 'Write all available formats')
+  .action((opts: { outputDir: string; sarif?: boolean; markdown?: boolean; all?: boolean }) => {
+    console.log('');
+    const outputDir = path.resolve(opts.outputDir);
+    const reportPath = path.join(outputDir, 'report.json');
+
+    if (!fs.existsSync(reportPath)) {
+      console.error(chalk.red(`  report.json not found in ${outputDir}`));
+      console.log(chalk.gray('  Run a scan first: appsec scan <path>'));
+      process.exit(3);
+    }
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf-8')) as ScanReport;
+    const written: string[] = [];
+
+    if (opts.sarif || opts.all) {
+      const p = path.join(outputDir, 'report.sarif');
+      fs.writeFileSync(p, generateSarif(report));
+      written.push(p);
+    }
+    if (opts.markdown || opts.all) {
+      const p = path.join(outputDir, 'report.md');
+      fs.writeFileSync(p, generateMarkdown(report));
+      written.push(p);
+    }
+
+    if (written.length === 0) {
+      console.log(chalk.yellow('  Specify a format: --sarif, --markdown, or --all'));
+    } else {
+      written.forEach(p => console.log(`  ${chalk.green('✓')} ${chalk.cyan(p)}`));
+      console.log('');
+      console.log(chalk.green('  ✅  Reports generated.'));
+    }
+    console.log('');
   });
 
 // ── rules command group ──────────────────────────────────────────────────────
@@ -293,15 +753,9 @@ rulesCmd
   .action((opts: { owasp?: string; engine?: string; tag?: string }) => {
     let rules = defaultRegistry.listRules();
 
-    if (opts.owasp) {
-      rules = defaultRegistry.getRulesByOwasp(opts.owasp);
-    }
-    if (opts.engine) {
-      rules = rules.filter(r => r.engine === opts.engine);
-    }
-    if (opts.tag) {
-      rules = rules.filter(r => r.tags.some(t => t.toLowerCase() === opts.tag!.toLowerCase()));
-    }
+    if (opts.owasp) rules = defaultRegistry.getRulesByOwasp(opts.owasp);
+    if (opts.engine) rules = rules.filter(r => r.engine === opts.engine);
+    if (opts.tag) rules = rules.filter(r => r.tags.some(t => t.toLowerCase() === opts.tag!.toLowerCase()));
 
     if (rules.length === 0) {
       console.log(chalk.yellow('  No rules match the given filters.'));
@@ -352,21 +806,11 @@ rulesCmd
     console.log(`  ${chalk.gray('Category:')}   ${rule.category}`);
     console.log(`  ${chalk.gray('Enabled:')}    ${defaultRegistry.isEnabled(rule.id) ? chalk.green('yes') : chalk.red('no (disabled)')}`);
     console.log('');
-    if (rule.owasp2025.length > 0) {
-      console.log(`  ${chalk.gray('OWASP 2025:')} ${chalk.green(rule.owasp2025.join(', '))}`);
-    }
-    if (rule.cwe && rule.cwe.length > 0) {
-      console.log(`  ${chalk.gray('CWE:')}        ${rule.cwe.join(', ')}`);
-    }
-    if (rule.asvs && rule.asvs.length > 0) {
-      console.log(`  ${chalk.gray('ASVS:')}       ${rule.asvs.join(', ')}`);
-    }
-    if (rule.wstg && rule.wstg.length > 0) {
-      console.log(`  ${chalk.gray('WSTG:')}       ${rule.wstg.join(', ')}`);
-    }
-    if (rule.tags.length > 0) {
-      console.log(`  ${chalk.gray('Tags:')}       ${rule.tags.join(', ')}`);
-    }
+    if (rule.owasp2025.length > 0) console.log(`  ${chalk.gray('OWASP 2025:')} ${chalk.green(rule.owasp2025.join(', '))}`);
+    if (rule.cwe && rule.cwe.length > 0) console.log(`  ${chalk.gray('CWE:')}        ${rule.cwe.join(', ')}`);
+    if (rule.asvs && rule.asvs.length > 0) console.log(`  ${chalk.gray('ASVS:')}       ${rule.asvs.join(', ')}`);
+    if (rule.wstg && rule.wstg.length > 0) console.log(`  ${chalk.gray('WSTG:')}       ${rule.wstg.join(', ')}`);
+    if (rule.tags.length > 0) console.log(`  ${chalk.gray('Tags:')}       ${rule.tags.join(', ')}`);
     console.log('');
     console.log(`  ${chalk.gray('Remediation:')}`);
     console.log(`  ${rule.remediation}`);
@@ -399,9 +843,7 @@ rulesCmd
     const outputPath = path.resolve(opts.output);
     const outputDir = path.dirname(outputPath);
 
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
     fs.writeFileSync(outputPath, markdown, 'utf-8');
 
@@ -464,7 +906,6 @@ function printRuntimeReport(report: RuntimeScanReport): void {
     summary.info > 0 ? chalk.gray(`Info: ${summary.info}`) : '',
   ].filter(Boolean).join(chalk.gray(' | '));
   if (summaryParts) console.log(`  ${summaryParts}`);
-
   console.log('');
 
   if (report.topRecommendations.length > 0) {
@@ -484,14 +925,14 @@ program
   .option('--delay <ms>', 'Delay between requests in milliseconds', '150')
   .option('--timeout <ms>', 'Request timeout in milliseconds', '15000')
   .option('--json', 'Output full JSON report to stdout')
+  .option('--sarif', 'Also write SARIF report to .appsec/runtime-report.sarif')
   .option('--no-browser', 'Skip Playwright browser crawl (HTTP probes only)')
   .action(async (url: string, opts: {
     maxPages: string; maxDepth: string; delay: string; timeout: string;
-    json?: boolean; browser: boolean;
+    json?: boolean; sarif?: boolean; browser: boolean;
   }) => {
     printBanner();
 
-    // Validate URL
     try { new URL(url); } catch {
       console.error(chalk.red(`  Error: Invalid URL: ${url}`));
       process.exit(2);
@@ -526,9 +967,31 @@ program
 
       printRuntimeReport(report);
 
-      const hasCritical = report.summary.critical > 0;
-      const hasHigh = report.summary.high > 0;
-      process.exit(hasCritical || hasHigh ? 1 : 0);
+      // Save runtime report
+      const outputDir = path.resolve('.appsec');
+      if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+      const rtReportPath = path.join(outputDir, 'runtime-report.json');
+      fs.writeFileSync(rtReportPath, JSON.stringify(report, null, 2));
+      console.log(`  ${chalk.gray('Report saved:')} ${chalk.cyan(rtReportPath)}`);
+
+      if (opts.sarif) {
+        const sarifPath = path.join(outputDir, 'runtime-report.sarif');
+        const fakeStaticReport: ScanReport = {
+          scannedPath: url, timestamp: new Date().toISOString(),
+          findings: report.findings as unknown as Finding[],
+          summary: report.summary, riskScore: report.riskScore,
+          filesScanned: 0, filesIgnored: 0,
+          detectedStack: { languages: [], frameworks: [], databases: [], authProviders: [], aiProviders: [], deploymentTargets: [], packageManagers: [] },
+          topRecommendations: report.topRecommendations, owaspCoverage: [], topRiskyFiles: [],
+          findingsByLayer: { code: [], runtime: report.findings as unknown as Finding[], authz: [] },
+          metadata: { timestamp: new Date().toISOString(), layers: ['runtime'], version: pkg.version },
+        };
+        fs.writeFileSync(sarifPath, generateSarif(fakeStaticReport, report));
+        console.log(`    ${chalk.cyan(sarifPath)}`);
+      }
+
+      console.log('');
+      process.exit(report.summary.critical > 0 || report.summary.high > 0 ? 1 : 0);
     } catch (err) {
       console.error(chalk.red('  Runtime scan failed:'), err);
       process.exit(2);
@@ -540,19 +1003,9 @@ program
 const AUTH_CONFIG_TEMPLATE: AuthScanConfig = {
   baseUrl: 'http://localhost:3000',
   profiles: {
-    userA: {
-      label: 'low-privileged-user-a',
-      storageStatePath: '.appsec/auth/userA.storage.json',
-    },
-    userB: {
-      label: 'low-privileged-user-b',
-      storageStatePath: '.appsec/auth/userB.storage.json',
-    },
-    admin: {
-      label: 'admin-user',
-      storageStatePath: '.appsec/auth/admin.storage.json',
-      isPrivileged: true,
-    },
+    userA: { label: 'low-privileged-user-a', storageStatePath: '.appsec/auth/userA.storage.json' },
+    userB: { label: 'low-privileged-user-b', storageStatePath: '.appsec/auth/userB.storage.json' },
+    admin: { label: 'admin-user', storageStatePath: '.appsec/auth/admin.storage.json', isPrivileged: true },
   },
   accessControlTests: [
     {
@@ -657,14 +1110,13 @@ program
       console.log('');
     }
 
-    // Load config
     let config: AuthScanConfig;
     const configPath = path.resolve(opts.config);
     if (fs.existsSync(configPath)) {
       config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as AuthScanConfig;
       config.baseUrl = url;
     } else {
-      console.log(chalk.gray(`  No auth-config.json found. Using defaults (storageState files from .appsec/auth/).`));
+      console.log(chalk.gray(`  No auth-config.json found. Using defaults.`));
       console.log(chalk.gray(`  Run "appsec auth init" to create a config template.`));
       console.log('');
       config = { ...AUTH_CONFIG_TEMPLATE, baseUrl: url };
@@ -684,7 +1136,6 @@ program
 
       printAuthReport(report);
 
-      // Save report
       const outputDir = path.resolve('.appsec');
       if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
       fs.writeFileSync(path.join(outputDir, 'auth-report.json'), JSON.stringify(report, null, 2));
@@ -722,9 +1173,8 @@ authCmd
     console.log(chalk.green('  ✅  Created .appsec/auth-config.json'));
     console.log('');
     console.log(chalk.gray('  Next steps:'));
-    console.log(`  1. Edit ${chalk.cyan(configPath)} to set baseUrl and profile storageState paths`);
-    console.log('  2. Export storageState for each user (see docs/auth-access-control-scanning.md)');
-    console.log('     OR run: npx tsx --tsconfig scripts/tsconfig.json scripts/setup-auth-profiles.ts');
+    console.log(`  1. Edit ${chalk.cyan(configPath)} to set baseUrl and profile paths`);
+    console.log('  2. Run: npx tsx --tsconfig scripts/tsconfig.json scripts/setup-auth-profiles.ts');
     console.log('  3. Run: appsec auth test-config');
     console.log('  4. Run: appsec scan-auth <url>');
     console.log('');
@@ -741,7 +1191,7 @@ authCmd
     if (!fs.existsSync(configPath)) {
       console.error(chalk.red(`  auth-config.json not found: ${configPath}`));
       console.log(chalk.gray(`  Run "appsec auth init" to create a template.`));
-      process.exit(1);
+      process.exit(3);
     }
 
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as AuthScanConfig;
@@ -775,7 +1225,6 @@ authCmd
 
     console.log('');
 
-    // Test connectivity
     try {
       const res = await fetch(`${baseUrl}/api/auth/me`, { signal: AbortSignal.timeout(5000) });
       if (res.status === 401 || res.status === 200) {
@@ -791,19 +1240,20 @@ authCmd
     console.log('');
     if (hasErrors) {
       console.log(chalk.red('  Validation failed. Fix the errors above before running scan-auth.'));
-      process.exit(1);
+      process.exit(3);
     } else {
       console.log(chalk.green('  ✅  Auth config is valid. Run: appsec scan-auth <url>'));
     }
     console.log('');
   });
 
-// ── dashboard command ────────────────────────────────────────────────────────
+// ── dashboard stub ────────────────────────────────────────────────────────────
 program
   .command('dashboard')
-  .description('Open the security dashboard (Phase 8)')
+  .description('Open the security dashboard')
   .action(() => {
-    console.log(chalk.yellow('  Dashboard coming in Phase 8. For now, open .appsec/report.html in your browser.'));
+    console.log(chalk.yellow('  Open .appsec/report.html in your browser for the interactive dashboard.'));
+    console.log(chalk.gray('  Or run: appsec report --markdown --sarif  to generate additional formats.'));
   });
 
 program.parse(process.argv);
