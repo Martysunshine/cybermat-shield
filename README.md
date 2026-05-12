@@ -29,6 +29,15 @@ npm install -g @cybermat/cli
 appsec scan ./your-project
 ```
 
+### Or install from GitHub Packages
+
+```bash
+npm install -g @martysunshine/cybermatshield --registry=https://npm.pkg.github.com
+appsec scan ./your-project
+```
+
+> Requires a GitHub account and a personal access token with `read:packages` scope.
+
 ### Or run without installing
 
 ```bash
@@ -213,7 +222,7 @@ On every push and PR it will:
 - ✅ Run `appsec scan`
 - 📤 Upload SARIF to GitHub Code Scanning
 - 💬 Post a findings summary comment on the PR
-- ❌ Fail if critical/high findings are detected
+- 🔕 Report findings without blocking CI by default (set `--fail-on high` to enable hard-fail)
 
 **Exit codes:**
 
