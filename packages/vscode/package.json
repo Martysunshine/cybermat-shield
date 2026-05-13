@@ -15,6 +15,10 @@
   },
   "categories": ["Linters", "Other"],
   "keywords": ["security", "secrets", "xss", "owasp", "appsec", "sast", "injection"],
+  "galleryBanner": {
+    "color": "#1a1a2e",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -55,16 +59,16 @@
     }
   },
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc --watch",
+    "build": "rimraf dist && node ../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --external:playwright --platform=node --format=cjs --sourcemap",
+    "type-check": "tsc --noEmit",
+    "watch": "node ../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --external:playwright --platform=node --format=cjs --sourcemap --watch",
     "clean": "rimraf dist"
   },
-  "dependencies": {
+  "dependencies": {},
+  "devDependencies": {
     "@cybermat/core": "workspace:*",
     "@cybermat/rules": "workspace:*",
-    "@cybermat/shared": "workspace:*"
-  },
-  "devDependencies": {
+    "@cybermat/shared": "workspace:*",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.90.0",
     "rimraf": "^5.0.0",

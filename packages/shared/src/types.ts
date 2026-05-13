@@ -342,7 +342,7 @@ export const DEFAULT_CONFIG: ScannerConfig = {
   ignoreDirs: ['node_modules', '.next', 'dist', 'build', '.git', 'coverage', '.turbo', '.vercel', '.cache', 'out'],
   ignoreFiles: [],
   maxFileSizeBytes: 1_000_000,
-  outputDir: '.appsec',
+  outputDir: '.cybermat',
 };
 
 // ─── Runtime Scan Types ───────────────────────────────────────────────────────

@@ -12,8 +12,8 @@ export function loadIgnoreRules(rootPath: string): IgnoreRules {
   const rules: IgnoreRules = { files: [], ruleIds: [], fingerprints: [] };
 
   const candidatePaths = [
-    path.join(rootPath, '.appsecignore'),
-    path.join(rootPath, '.appsec', '.appsecignore'),
+    path.join(rootPath, '.cybermatignore'),
+    path.join(rootPath, '.cybermat', '.cybermatignore'),
   ];
 
   for (const p of candidatePaths) {

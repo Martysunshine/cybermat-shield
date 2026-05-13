@@ -6,7 +6,7 @@ export const REDIRECT_PARAMS = [
   'callbackUrl', 'continue', 'url',
 ] as const;
 
-export const SAFE_REDIRECT_TARGET = 'https://example.com/appsecscanner-redirect-test';
+export const SAFE_REDIRECT_TARGET = 'https://example.com/cybermat-redirect-test';
 
 export function buildRedirectTestUrls(baseUrl: string): Array<{ url: string; param: string }> {
   return REDIRECT_PARAMS.map(param => ({
@@ -27,7 +27,7 @@ export function analyzeRedirectResults(results: RedirectProbeResult[]): RuntimeF
 
   for (const result of results) {
     const loc = result.locationHeader ?? '';
-    if (loc.startsWith('https://example.com/appsecscanner-redirect-test')) {
+    if (loc.startsWith('https://example.com/cybermat-redirect-test')) {
       findings.push(RuntimeFindingBuilder.redirect(
         'runtime.open-redirect',
         'Open Redirect',

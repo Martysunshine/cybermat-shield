@@ -145,7 +145,7 @@ export const RuntimeFindingBuilder = {
       category: 'Open Redirect',
       evidence: {
         reason: description,
-        snippet: `?${param}=https://example.com/appsecscanner-redirect-test → 3xx`,
+        snippet: `?${param}=https://example.com/cybermat-redirect-test → 3xx`,
       },
       impact: description,
       recommendation,
@@ -153,7 +153,7 @@ export const RuntimeFindingBuilder = {
       layer: 'runtime',
       url,
       method: 'GET',
-      requestEvidence: `?${param}=${encodeURIComponent('https://example.com/appsecscanner-redirect-test')}`,
+      requestEvidence: `?${param}=${encodeURIComponent('https://example.com/cybermat-redirect-test')}`,
     };
   },
 

@@ -23,7 +23,7 @@ Layer 3 — Auth/Authz Scanner(Phase 7)    🔲 planned
 **Runs against:** source files on disk. No network, no browser.
 
 **Responsibilities:**
-- File inventory (recursive scan, binary skip, size limits, .appsecignore)
+- File inventory (recursive scan, binary skip, size limits, .cybermatignore)
 - Stack detection (frameworks, auth providers, databases, AI providers)
 - File classification (client / server / shared / config / public / test)
 - Secret scanning (66 detectors with context-aware severity)
@@ -121,7 +121,7 @@ The layers must be built in strict order. Later layers depend on earlier layers 
 packages/
   shared/          Core types — Finding, Rule, ScanReport, ScannerEngine, etc.
   analyzers/       Fact extractors — read files, produce structured data for rules
-    file-inventory/   Recursive file scan, binary detection, .appsecignore
+    file-inventory/   Recursive file scan, binary detection, .cybermatignore
     stack-detector/   Framework, auth, DB, AI provider detection
     file-classifier/  Client/server/shared classification (Phase 4)
     route-discovery/  Next.js + Express route discovery (Phase 4)
@@ -278,7 +278,7 @@ The architecture is designed to plug in additional tools and surfaces without ch
 
 | Extension | Integration point |
 |---|---|
-| VS Code extension | Consumes `ScanReport` JSON from `.appsec/report.json` |
+| VS Code extension | Consumes `ScanReport` JSON from `.cybermat/report.json` |
 | Browser extension | Runs `runtime-scanner` engine headlessly |
 | GitHub Action | `cybermat scan .` + SARIF upload to GitHub code scanning |
 | Cloud dashboard | Receives `ScanReport` via secure upload (opt-in) |

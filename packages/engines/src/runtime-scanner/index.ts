@@ -10,7 +10,7 @@ export const runtimeScannerEngine: ScannerEngine = {
 
   async run(context: ScanContext): Promise<Finding[]> {
     if (!context.targetUrl) {
-      throw new Error('Runtime scanner requires a targetUrl. Use: appsec scan-runtime <url>');
+      throw new Error('Runtime scanner requires a targetUrl. Use: cybermat scan-runtime <url>');
     }
     const scanner = new RuntimeScanner({ baseUrl: context.targetUrl });
     const report = await scanner.run();

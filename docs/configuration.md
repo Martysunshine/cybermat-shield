@@ -1,17 +1,17 @@
 # Configuration Reference
 
-CyberMat Shield reads configuration from `appsec.config.json` in the project root. Run `cybermat init` to create it.
+CyberMat Shield reads configuration from `cybermat.config.json` in the project root. Run `cybermat init` to create it.
 
 ---
 
-## Full `appsec.config.json` schema
+## Full `cybermat.config.json` schema
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/Martysunshine/cybermat-shield/main/schema/appsec-config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/Martysunshine/cybermat-shield/main/schema/cybermat-config.schema.json",
   "version": 1,
 
-  "outputDir": ".appsec",
+  "outputDir": ".cybermat",
   "failOn": "high",
 
   "rules": {
@@ -52,7 +52,7 @@ CyberMat Shield reads configuration from `appsec.config.json` in the project roo
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `version` | `1` | required | Config schema version. Must be `1`. |
-| `outputDir` | string | `.appsec` | Directory for report files |
+| `outputDir` | string | `.cybermat` | Directory for report files |
 | `failOn` | string | `high` | Minimum severity to exit with code 1. One of: `critical`, `high`, `medium`, `low`, `info`, `none` |
 
 ### `rules`
@@ -88,7 +88,7 @@ CyberMat Shield reads configuration from `appsec.config.json` in the project roo
 
 ---
 
-## `.appsecignore`
+## `.cybermatignore`
 
 Suppress findings by path, rule ID, or fingerprint:
 
@@ -107,7 +107,7 @@ Fingerprints are stable across runs for the same rule + file + line bucket. Copy
 
 ---
 
-## Auth config (`.appsec/auth-config.json`)
+## Auth config (`.cybermat/auth-config.json`)
 
 See [auth-access-control-scanning.md](auth-access-control-scanning.md) for the full auth config reference.
 

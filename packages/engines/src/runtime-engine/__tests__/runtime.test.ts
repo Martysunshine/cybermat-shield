@@ -356,7 +356,7 @@ describe('analyzeExposedFiles', () => {
 
 describe('classifyReflectionContext', () => {
   test('returns none when marker not present', () => {
-    assert.equal(classifyReflectionContext('<html>hello</html>', 'appsecscanner_marker_abc'), 'none');
+    assert.equal(classifyReflectionContext('<html>hello</html>', 'cybermat_marker_abc'), 'none');
   });
 
   test('detects script-block context', () => {
@@ -381,6 +381,6 @@ describe('classifyReflectionContext', () => {
     const m1 = generateMarker();
     const m2 = generateMarker();
     assert.notEqual(m1, m2);
-    assert.ok(m1.startsWith('appsecscanner_marker_'));
+    assert.ok(m1.startsWith('cybermat_marker_'));
   });
 });

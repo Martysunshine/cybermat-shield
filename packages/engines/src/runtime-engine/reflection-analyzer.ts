@@ -5,7 +5,7 @@ import { RuntimeFindingBuilder } from './runtime-finding-builder';
 export type ReflectionContext = 'html-text' | 'html-attribute' | 'script-block' | 'json' | 'url' | 'none';
 
 export function generateMarker(): string {
-  return `appsecscanner_marker_${randomBytes(6).toString('hex')}`;
+  return `cybermat_marker_${randomBytes(6).toString('hex')}`;
 }
 
 export function classifyReflectionContext(body: string, marker: string): ReflectionContext {

@@ -61,7 +61,7 @@ node packages/cli/dist/index.js scan-auth http://localhost:3000
 node packages/cli/dist/index.js auth init
 ```
 
-This creates `.appsec/auth-config.json`:
+This creates `.cybermat/auth-config.json`:
 
 ```json
 {
@@ -69,15 +69,15 @@ This creates `.appsec/auth-config.json`:
   "profiles": {
     "userA": {
       "label": "low-privileged-user-a",
-      "storageStatePath": ".appsec/auth/userA.storage.json"
+      "storageStatePath": ".cybermat/auth/userA.storage.json"
     },
     "userB": {
       "label": "low-privileged-user-b",
-      "storageStatePath": ".appsec/auth/userB.storage.json"
+      "storageStatePath": ".cybermat/auth/userB.storage.json"
     },
     "admin": {
       "label": "admin-user",
-      "storageStatePath": ".appsec/auth/admin.storage.json",
+      "storageStatePath": ".cybermat/auth/admin.storage.json",
       "isPrivileged": true
     }
   },
@@ -119,8 +119,8 @@ await page.click('button[type=submit]');
 await page.waitForURL('**/dashboard');
 
 // Save session
-await mkdir('.appsec/auth', { recursive: true });
-await context.storageState({ path: '.appsec/auth/userA.storage.json' });
+await mkdir('.cybermat/auth', { recursive: true });
+await context.storageState({ path: '.cybermat/auth/userA.storage.json' });
 await browser.close();
 ```
 
@@ -136,7 +136,7 @@ await browser.close();
 }
 ```
 
-> **Security:** storageState files contain real session cookies. Add `.appsec/auth/` to your `.gitignore` immediately. Never commit these files.
+> **Security:** storageState files contain real session cookies. Add `.cybermat/auth/` to your `.gitignore` immediately. Never commit these files.
 
 ### Step 3 — Validate
 
@@ -244,4 +244,4 @@ Fix: Verify resource ownership server-side. Never trust IDs from the client.
 - All session tokens are loaded from storageState files and never logged or stored in reports
 - Report files (`auth-report.json`) contain finding descriptions but not raw session tokens
 - The scanner never stores credentials in memory beyond the duration of the scan
-- Add `.appsec/auth/` to `.gitignore` to prevent accidentally committing session files
+- Add `.cybermat/auth/` to `.gitignore` to prevent accidentally committing session files

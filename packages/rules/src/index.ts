@@ -36,7 +36,7 @@ export const codeRules: Rule[] = [
   aiSecurityRule,
 ];
 
-/** All rules active during a default `appsec scan` */
+/** All rules active during a default `cybermat scan` */
 export const allRules: Rule[] = codeRules;
 
 export {

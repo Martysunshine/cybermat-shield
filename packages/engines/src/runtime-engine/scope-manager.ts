@@ -10,7 +10,7 @@ export const DEFAULT_RUNTIME_CONFIG = {
   requestDelayMs: 100,
   timeoutMs: 30_000,
   safeMode: true,
-  userAgent: 'CyberMat-Shield/0.6.0 (appsec-scanner; safe-mode)',
+  userAgent: 'CyberMat-Shield/0.6.0 (cybermat-scanner; safe-mode)',
 } as const;
 
 export class ScopeManager {

@@ -153,7 +153,7 @@ function printReport(report: ScanReport, diff?: BaselineDiff): void {
     console.log('');
   }
 
-  const outputDir = path.join(report.scannedPath, '.appsec');
+  const outputDir = path.join(report.scannedPath, '.cybermat');
   console.log(`  ${chalk.gray('Reports saved:')}`);
   console.log(`    ${chalk.cyan(path.join(outputDir, 'report.json'))}`);
   console.log(`    ${chalk.cyan(path.join(outputDir, 'report.html'))}`);
@@ -274,7 +274,7 @@ function generateRulesDocs(rules: RuleMetadata[]): string {
 const program = new Command();
 
 program
-  .name('appsec')
+  .name('cybermat')
   .description('CyberMat Shield — Local-first Application Security Scanner')
   .version(pkg.version);
 
@@ -287,16 +287,16 @@ program
     console.log(chalk.cyan.bold('  Initializing CyberMat Shield...'));
     console.log('');
 
-    const appsecDir = path.resolve('.appsec');
-    if (!fs.existsSync(appsecDir)) {
-      fs.mkdirSync(appsecDir, { recursive: true });
-      console.log(`  ${chalk.green('✓')} Created .appsec/`);
+    const cybermatDir = path.resolve('.cybermat');
+    if (!fs.existsSync(cybermatDir)) {
+      fs.mkdirSync(cybermatDir, { recursive: true });
+      console.log(`  ${chalk.green('✓')} Created .cybermat/`);
     } else {
-      console.log(`  ${chalk.gray('~')} .appsec/ already exists`);
+      console.log(`  ${chalk.gray('~')} .cybermat/ already exists`);
     }
 
-    // .appsecignore
-    const ignorePath = path.resolve('.appsecignore');
+    // .cybermatignore
+    const ignorePath = path.resolve('.cybermatignore');
     if (!fs.existsSync(ignorePath)) {
       fs.writeFileSync(ignorePath, [
         '# CyberMat Shield ignore file',
@@ -313,18 +313,18 @@ program
         '# fp:abc123...',
         '',
       ].join('\n'));
-      console.log(`  ${chalk.green('✓')} Created .appsecignore`);
+      console.log(`  ${chalk.green('✓')} Created .cybermatignore`);
     } else {
-      console.log(`  ${chalk.gray('~')} .appsecignore already exists`);
+      console.log(`  ${chalk.gray('~')} .cybermatignore already exists`);
     }
 
-    // appsec.config.json
-    const configPath = path.resolve('appsec.config.json');
+    // cybermat.config.json
+    const configPath = path.resolve('cybermat.config.json');
     if (!fs.existsSync(configPath)) {
       const config = {
-        $schema: 'https://raw.githubusercontent.com/Martysunshine/cybermat-shield/main/schema/appsec-config.schema.json',
+        $schema: 'https://raw.githubusercontent.com/Martysunshine/cybermat-shield/main/schema/cybermat-config.schema.json',
         version: 1,
-        outputDir: '.appsec',
+        outputDir: '.cybermat',
         failOn: 'high',
         rules: {
           disabled: [],
@@ -346,9 +346,9 @@ program
         },
       };
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-      console.log(`  ${chalk.green('✓')} Created appsec.config.json`);
+      console.log(`  ${chalk.green('✓')} Created cybermat.config.json`);
     } else {
-      console.log(`  ${chalk.gray('~')} appsec.config.json already exists`);
+      console.log(`  ${chalk.gray('~')} cybermat.config.json already exists`);
     }
 
     // .gitignore entry
@@ -356,11 +356,11 @@ program
     if (fs.existsSync(gitignorePath)) {
       const content = fs.readFileSync(gitignorePath, 'utf-8');
       const linesToAdd: string[] = [];
-      if (!content.includes('.appsec/auth/')) linesToAdd.push('.appsec/auth/');
+      if (!content.includes('.cybermat/auth/')) linesToAdd.push('.cybermat/auth/');
       if (!content.includes('*.storage.json')) linesToAdd.push('*.storage.json');
       if (linesToAdd.length > 0) {
         fs.appendFileSync(gitignorePath, `\n# CyberMat Shield — session tokens (never commit)\n${linesToAdd.join('\n')}\n`);
-        console.log(`  ${chalk.green('✓')} Added .appsec/auth/ to .gitignore`);
+        console.log(`  ${chalk.green('✓')} Added .cybermat/auth/ to .gitignore`);
       }
     }
 
@@ -422,36 +422,36 @@ program
     }
 
     // .cybermat dir writable
-    const appsecDir = path.resolve('.appsec');
+    const cybermatDir = path.resolve('.cybermat');
     try {
-      if (!fs.existsSync(appsecDir)) fs.mkdirSync(appsecDir, { recursive: true });
-      const testFile = path.join(appsecDir, '.write-test');
+      if (!fs.existsSync(cybermatDir)) fs.mkdirSync(cybermatDir, { recursive: true });
+      const testFile = path.join(cybermatDir, '.write-test');
       fs.writeFileSync(testFile, '');
       fs.unlinkSync(testFile);
-      check('.appsec/ is writable', true);
+      check('.cybermat/ is writable', true);
     } catch {
-      check('.appsec/ is writable', false, 'Check directory permissions');
+      check('.cybermat/ is writable', false, 'Check directory permissions');
     }
 
     // Config file
-    const configPath = path.resolve('appsec.config.json');
+    const configPath = path.resolve('cybermat.config.json');
     if (fs.existsSync(configPath)) {
       try {
         JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-        check('appsec.config.json', true, 'Valid JSON');
+        check('cybermat.config.json', true, 'Valid JSON');
       } catch {
-        check('appsec.config.json', false, 'Invalid JSON — run: cybermat config validate');
+        check('cybermat.config.json', false, 'Invalid JSON — run: cybermat config validate');
       }
     } else {
-      warn('appsec.config.json not found', 'Run: cybermat init');
+      warn('cybermat.config.json not found', 'Run: cybermat init');
     }
 
-    // .appsecignore
-    const ignorePath = path.resolve('.appsecignore');
+    // .cybermatignore
+    const ignorePath = path.resolve('.cybermatignore');
     if (fs.existsSync(ignorePath)) {
-      check('.appsecignore', true, 'Present');
+      check('.cybermatignore', true, 'Present');
     } else {
-      warn('.appsecignore not found', 'Run: cybermat init');
+      warn('.cybermatignore not found', 'Run: cybermat init');
     }
 
     // Rule registry
@@ -459,20 +459,20 @@ program
     check(`Rule registry — ${ruleCount} rules loaded`, ruleCount > 0);
 
     // Auth profiles (optional)
-    const authDir = path.resolve('.appsec/auth');
+    const authDir = path.resolve('.cybermat/auth');
     if (fs.existsSync(authDir)) {
       const storageFiles = fs.readdirSync(authDir).filter(f => f.endsWith('.storage.json'));
       if (storageFiles.length > 0) {
         check(`Auth profiles — ${storageFiles.length} storageState file(s)`, true);
       } else {
-        warn('No storageState files in .appsec/auth/', 'Run: npx tsx scripts/setup-auth-profiles.ts');
+        warn('No storageState files in .cybermat/auth/', 'Run: npx tsx scripts/setup-auth-profiles.ts');
       }
     } else {
-      warn('.appsec/auth/ not found', 'Optional — needed for scan-auth');
+      warn('.cybermat/auth/ not found', 'Optional — needed for scan-auth');
     }
 
     // Baseline
-    const baseline = loadBaseline(appsecDir);
+    const baseline = loadBaseline(cybermatDir);
     if (baseline) {
       check(`Baseline — ${baseline.entries.length} entries from ${baseline.createdAt.split('T')[0]}`, true);
     } else {
@@ -492,8 +492,8 @@ program
 // ── config validate command ───────────────────────────────────────────────────
 program
   .command('config validate')
-  .description('Validate appsec.config.json')
-  .option('--config <path>', 'Path to config file', 'appsec.config.json')
+  .description('Validate cybermat.config.json')
+  .option('--config <path>', 'Path to config file', 'cybermat.config.json')
   .action((opts: { config: string }) => {
     console.log('');
     const configPath = path.resolve(opts.config);
@@ -543,11 +543,11 @@ program
   .command('scan <path>')
   .description('Scan a project directory for security issues')
   .option('--json', 'Output full JSON report to stdout')
-  .option('--sarif', 'Write SARIF report to .appsec/report.sarif')
-  .option('--markdown', 'Write Markdown report to .appsec/report.md')
-  .option('--output-dir <dir>', 'Output directory for reports', '.appsec')
+  .option('--sarif', 'Write SARIF report to .cybermat/report.sarif')
+  .option('--markdown', 'Write Markdown report to .cybermat/report.md')
+  .option('--output-dir <dir>', 'Output directory for reports', '.cybermat')
   .option('--fail-on <severity>', 'Exit 1 when findings at or above this severity exist (critical|high|medium|low|info|none)', 'high')
-  .option('--baseline', 'Compare to .appsec/baseline.json and annotate new vs existing findings')
+  .option('--baseline', 'Compare to .cybermat/baseline.json and annotate new vs existing findings')
   .option('--ci', 'Exit code 5 if new findings compared to baseline (implies --baseline)')
   .option('--strict-rules', 'Exit 2 if any rule fails internally during execution')
   .option('--debug', 'Print per-rule timing and detailed internal diagnostics')
@@ -575,7 +575,7 @@ program
       });
 
       // Output dir is relative to the scanned path (where JSON/HTML also go)
-      const outputDir = path.join(absolutePath, opts.outputDir ?? '.appsec');
+      const outputDir = path.join(absolutePath, opts.outputDir ?? '.cybermat');
 
       // Baseline comparison
       let diff: BaselineDiff | undefined;
@@ -599,7 +599,7 @@ program
       // Engine health diagnostics warning
       const engineHealth = report.metadata?.engineHealth;
       if (engineHealth && engineHealth.rulesFailed > 0) {
-        console.log(chalk.yellow(`  ⚠  ${engineHealth.rulesFailed} rule(s) failed internally. Results may be incomplete. See .appsec/report.json diagnostics.`));
+        console.log(chalk.yellow(`  ⚠  ${engineHealth.rulesFailed} rule(s) failed internally. Results may be incomplete. See .cybermat/report.json diagnostics.`));
         console.log('');
         if (opts.debug) {
           console.log(chalk.gray('  Failed rules:'));
@@ -667,7 +667,7 @@ const baselineCmd = program
 baselineCmd
   .command('create')
   .description('Create a baseline from the last scan report')
-  .option('--output-dir <dir>', 'Directory containing report.json', '.appsec')
+  .option('--output-dir <dir>', 'Directory containing report.json', '.cybermat')
   .action((opts: { outputDir: string }) => {
     console.log('');
     const outputDir = path.resolve(opts.outputDir);
@@ -692,7 +692,7 @@ baselineCmd
 baselineCmd
   .command('compare')
   .description('Compare the last scan report to the current baseline')
-  .option('--output-dir <dir>', 'Directory containing report.json and baseline.json', '.appsec')
+  .option('--output-dir <dir>', 'Directory containing report.json and baseline.json', '.cybermat')
   .action((opts: { outputDir: string }) => {
     console.log('');
     const outputDir = path.resolve(opts.outputDir);
@@ -746,7 +746,7 @@ baselineCmd
 program
   .command('report')
   .description('Generate additional report formats from the last scan')
-  .option('--output-dir <dir>', 'Directory containing report.json', '.appsec')
+  .option('--output-dir <dir>', 'Directory containing report.json', '.cybermat')
   .option('--sarif', 'Write SARIF report')
   .option('--markdown', 'Write Markdown report')
   .option('--all', 'Write all available formats')
@@ -971,7 +971,7 @@ program
   .option('--delay <ms>', 'Delay between requests in milliseconds', '150')
   .option('--timeout <ms>', 'Request timeout in milliseconds', '15000')
   .option('--json', 'Output full JSON report to stdout')
-  .option('--sarif', 'Also write SARIF report to .appsec/runtime-report.sarif')
+  .option('--sarif', 'Also write SARIF report to .cybermat/runtime-report.sarif')
   .option('--no-browser', 'Skip Playwright browser crawl (HTTP probes only)')
   .action(async (url: string, opts: {
     maxPages: string; maxDepth: string; delay: string; timeout: string;
@@ -1014,7 +1014,7 @@ program
       printRuntimeReport(report);
 
       // Save runtime report
-      const outputDir = path.resolve('.appsec');
+      const outputDir = path.resolve('.cybermat');
       if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
       const rtReportPath = path.join(outputDir, 'runtime-report.json');
       fs.writeFileSync(rtReportPath, JSON.stringify(report, null, 2));
@@ -1049,9 +1049,9 @@ program
 const AUTH_CONFIG_TEMPLATE: AuthScanConfig = {
   baseUrl: 'http://localhost:3000',
   profiles: {
-    userA: { label: 'low-privileged-user-a', storageStatePath: '.appsec/auth/userA.storage.json' },
-    userB: { label: 'low-privileged-user-b', storageStatePath: '.appsec/auth/userB.storage.json' },
-    admin: { label: 'admin-user', storageStatePath: '.appsec/auth/admin.storage.json', isPrivileged: true },
+    userA: { label: 'low-privileged-user-a', storageStatePath: '.cybermat/auth/userA.storage.json' },
+    userB: { label: 'low-privileged-user-b', storageStatePath: '.cybermat/auth/userB.storage.json' },
+    admin: { label: 'admin-user', storageStatePath: '.cybermat/auth/admin.storage.json', isPrivileged: true },
   },
   accessControlTests: [
     {
@@ -1139,7 +1139,7 @@ function printAuthReport(report: AuthScanReport): void {
 program
   .command('scan-auth <url>')
   .description('Authenticated access-control scan (IDOR, vertical privilege, anonymous route testing)')
-  .option('--config <path>', 'Path to auth config JSON', '.appsec/auth-config.json')
+  .option('--config <path>', 'Path to auth config JSON', '.cybermat/auth-config.json')
   .option('--json', 'Output full JSON report to stdout')
   .action(async (url: string, opts: { config: string; json?: boolean }) => {
     printBanner();
@@ -1182,7 +1182,7 @@ program
 
       printAuthReport(report);
 
-      const outputDir = path.resolve('.appsec');
+      const outputDir = path.resolve('.cybermat');
       if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
       fs.writeFileSync(path.join(outputDir, 'auth-report.json'), JSON.stringify(report, null, 2));
       console.log(`  ${chalk.gray('Report saved:')} ${chalk.cyan(path.join(outputDir, 'auth-report.json'))}`);
@@ -1203,9 +1203,9 @@ const authCmd = program
 
 authCmd
   .command('init')
-  .description('Create .appsec/auth-config.json template')
+  .description('Create .cybermat/auth-config.json template')
   .action(() => {
-    const outputDir = path.resolve('.appsec');
+    const outputDir = path.resolve('.cybermat');
     const configPath = path.join(outputDir, 'auth-config.json');
 
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
@@ -1216,7 +1216,7 @@ authCmd
 
     fs.writeFileSync(configPath, JSON.stringify(AUTH_CONFIG_TEMPLATE, null, 2));
     console.log('');
-    console.log(chalk.green('  ✅  Created .appsec/auth-config.json'));
+    console.log(chalk.green('  ✅  Created .cybermat/auth-config.json'));
     console.log('');
     console.log(chalk.gray('  Next steps:'));
     console.log(`  1. Edit ${chalk.cyan(configPath)} to set baseUrl and profile paths`);
@@ -1229,7 +1229,7 @@ authCmd
 authCmd
   .command('test-config')
   .description('Validate auth profiles and test connectivity to the target')
-  .option('--config <path>', 'Path to auth config JSON', '.appsec/auth-config.json')
+  .option('--config <path>', 'Path to auth config JSON', '.cybermat/auth-config.json')
   .option('--url <url>', 'Target URL (overrides config baseUrl)')
   .action(async (opts: { config: string; url?: string }) => {
     console.log('');
@@ -1298,7 +1298,7 @@ program
   .command('dashboard')
   .description('Open the security dashboard')
   .action(() => {
-    console.log(chalk.yellow('  Open .appsec/report.html in your browser for the interactive dashboard.'));
+    console.log(chalk.yellow('  Open .cybermat/report.html in your browser for the interactive dashboard.'));
     console.log(chalk.gray('  Or run: cybermat report --markdown --sarif  to generate additional formats.'));
   });
 

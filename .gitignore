@@ -3,7 +3,7 @@ dist/
 .turbo/
 *.log
 .DS_Store
-.appsec/
+.cybermat/
 .env.local
 !examples/**/.env.local
 *.tsbuildinfo
@@ -14,3 +14,4 @@ readmeprompt*.md
 .claude/
 demo.tape
 docs/demo.cast
+*.vsix

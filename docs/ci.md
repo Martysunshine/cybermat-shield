@@ -6,7 +6,7 @@ CyberMat Shield is designed to run in CI pipelines with zero configuration for b
 
 ## GitHub Actions (recommended)
 
-The repo ships a ready-to-use workflow at `.github/workflows/appsec-scan.yml`.
+The repo ships a ready-to-use workflow at `.github/workflows/cybermat-scan.yml`.
 
 It automatically:
 1. Runs `cybermat scan .` on every push and pull request
@@ -49,7 +49,7 @@ pnpm install --frozen-lockfile
 pnpm build
 
 # Scan
-node packages/cli/dist/index.js scan . --sarif --output-dir .appsec
+node packages/cli/dist/index.js scan . --sarif --output-dir .cybermat
 
 # Exit code 0 = clean, 1 = findings, 2 = error
 echo "Exit: $?"
@@ -73,7 +73,7 @@ After your first clean scan, commit the baseline:
 ```bash
 node packages/cli/dist/index.js scan .
 node packages/cli/dist/index.js baseline create
-git add .appsec/baseline.json
+git add .cybermat/baseline.json
 git commit -m "chore: add cybermat baseline"
 ```
 
@@ -93,7 +93,7 @@ node packages/cli/dist/index.js scan . --ci
 # After fixing findings, run the scan and update the baseline
 node packages/cli/dist/index.js scan .
 node packages/cli/dist/index.js baseline create
-git add .appsec/baseline.json
+git add .cybermat/baseline.json
 git commit -m "chore: update cybermat baseline (fixed N findings)"
 ```
 
@@ -117,7 +117,7 @@ cybermat scan . --fail-on medium
 cybermat scan . --fail-on none
 ```
 
-Or set it permanently in `appsec.config.json`:
+Or set it permanently in `cybermat.config.json`:
 ```json
 {
   "failOn": "high"
@@ -137,7 +137,7 @@ Any CI system that supports SARIF can import findings:
 
 ```bash
 cybermat scan . --sarif
-# Produces .appsec/report.sarif
+# Produces .cybermat/report.sarif
 ```
 
 ---
@@ -145,7 +145,7 @@ cybermat scan . --sarif
 ## Example: GitLab CI
 
 ```yaml
-appsec-scan:
+cybermat-scan:
   image: node:22
   stage: test
   script:
@@ -155,9 +155,9 @@ appsec-scan:
     - node packages/cli/dist/index.js scan . --sarif --fail-on high
   artifacts:
     reports:
-      sast: .appsec/report.sarif
+      sast: .cybermat/report.sarif
     paths:
-      - .appsec/
+      - .cybermat/
     when: always
 ```
 

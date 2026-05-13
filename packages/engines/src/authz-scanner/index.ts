@@ -27,12 +27,12 @@ export const authzScannerEngine: ScannerEngine = {
 
   async run(context: ScanContext): Promise<Finding[]> {
     if (!context.targetUrl) {
-      throw new Error('Authz scanner requires a targetUrl. Use: appsec scan-auth <url>');
+      throw new Error('Authz scanner requires a targetUrl. Use: cybermat scan-auth <url>');
     }
     if (!context.authProfiles || context.authProfiles.length === 0) {
       throw new Error(
         'Authz scanner requires at least one auth profile. ' +
-        'Run: appsec auth init — then configure .appsec/auth/*.storage.json',
+        'Run: cybermat auth init — then configure .cybermat/auth/*.storage.json',
       );
     }
     // Phase 7: load auth profiles, discover routes, run AnonymousAccessTest,

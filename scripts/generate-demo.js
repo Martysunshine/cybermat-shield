@@ -127,8 +127,8 @@ const LINES = [
 
   // Reports saved
   { d: 6.16, s: [{t:'  Reports saved:', c:C.gray}] },
-  { d: 6.20, s: [{t:'    /Users/alex/projects/storefront/.appsec/report.json', c:C.cyan}] },
-  { d: 6.24, s: [{t:'    /Users/alex/projects/storefront/.appsec/report.html', c:C.cyan}] },
+  { d: 6.20, s: [{t:'    /Users/alex/projects/storefront/.cybermat/report.json', c:C.cyan}] },
+  { d: 6.24, s: [{t:'    /Users/alex/projects/storefront/.cybermat/report.html', c:C.cyan}] },
   { d: 6.28, s: [] },
 
   // Final prompt

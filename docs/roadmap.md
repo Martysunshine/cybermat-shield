@@ -21,7 +21,7 @@ Static analysis of source files. No browser, no network.
 - [x] AST source/sink correlation
 - [x] Full OWASP/CWE/ASVS/WSTG metadata on every rule
 - [x] Rule registry + `cybermat rules list/show/docs` CLI
-- [x] .appsecignore support (ignore by file path, rule ID, fingerprint)
+- [x] .cybermatignore support (ignore by file path, rule ID, fingerprint)
 - [x] HTML + JSON reports with redacted evidence
 - [x] Risk score 0–100 with OWASP Top 10:2025 coverage
 - [x] Multi-language file support (60+ extensions: Python, Go, Java, PHP, Ruby, Rust, Docker, Terraform, K8s, CI/CD, and more)
@@ -78,11 +78,11 @@ Making the scanner production-ready for CI/CD and team use.
 
 - [x] SARIF 2.1.0 output (compatible with GitHub code scanning)
 - [x] Markdown report format
-- [x] Baseline diffing (`.appsec/baseline.json` — new/existing/fixed per finding)
+- [x] Baseline diffing (`.cybermat/baseline.json` — new/existing/fixed per finding)
 - [x] `cybermat baseline create` / `cybermat baseline compare`
-- [x] `cybermat init` — initialize project config, .appsecignore, .gitignore entries
+- [x] `cybermat init` — initialize project config, .cybermatignore, .gitignore entries
 - [x] `cybermat doctor` — checks Node, pnpm, Playwright, config validity
-- [x] `cybermat config validate` — validate appsec.config.json
+- [x] `cybermat config validate` — validate cybermat.config.json
 - [x] `cybermat report` — generate SARIF/Markdown from saved JSON report
 - [x] GitHub Actions workflow with SARIF upload and PR comments
 - [x] Stable exit codes: 0 clean, 1 findings, 2 error, 3 config error, 4 missing dep, 5 new baseline findings

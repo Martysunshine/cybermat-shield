@@ -8,7 +8,7 @@ export interface ProbeResponse {
   body: string;
 }
 
-const SAFE_REDIRECT_TARGET_PREFIX = 'https://example.com/appsecscanner-redirect-test';
+const SAFE_REDIRECT_TARGET_PREFIX = 'https://example.com/cybermat-redirect-test';
 
 export class HttpProbeEngine {
   constructor(private readonly scope: ScopeManager) {}

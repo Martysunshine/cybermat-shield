@@ -2,7 +2,7 @@
  * STOP #3 Setup Script — Run this after starting the vulnerable-next-app.
  *
  * Logs in as each test user via Playwright and saves their session cookies to
- * .appsec/auth/<name>.storage.json so Phase 7 can load them as auth profiles.
+ * .cybermat/auth/<name>.storage.json so Phase 7 can load them as auth profiles.
  *
  * Usage:
  *   Terminal 1: cd examples/vulnerable-next-app && npx next dev
@@ -76,17 +76,17 @@ async function main() {
   await verifyApp();
   console.log('App is running.\n');
 
-  await mkdir('.appsec/auth', { recursive: true });
+  await mkdir('.cybermat/auth', { recursive: true });
 
   for (const { name, email, password } of PROFILES) {
-    const outPath = `.appsec/auth/${name}.storage.json`;
+    const outPath = `.cybermat/auth/${name}.storage.json`;
     await setupProfile(name, email, password, outPath);
   }
 
   console.log('\n✓ All auth profiles saved.');
   console.log('Files created:');
   for (const { name } of PROFILES) {
-    console.log(`  .appsec/auth/${name}.storage.json`);
+    console.log(`  .cybermat/auth/${name}.storage.json`);
   }
   console.log('\nSTOP #3 complete — you can now proceed with Phase 7.');
 }

@@ -36,10 +36,10 @@ const AUTHZ_MODE: ScanMode = {
 /**
  * Decides which scanner layers run based on the CLI command and available config.
  *
- * appsec scan .            → code layer only
- * appsec scan-runtime <u>  → runtime layer (+ code layer context if available)
- * appsec scan-auth <u>     → authz layer (requires auth profiles)
- * appsec full-scan .       → code + runtime (if targetUrl) + authz (if profiles)
+ * cybermat scan .            → code layer only
+ * cybermat scan-runtime <u>  → runtime layer (+ code layer context if available)
+ * cybermat scan-auth <u>     → authz layer (requires auth profiles)
+ * cybermat full-scan .       → code + runtime (if targetUrl) + authz (if profiles)
  */
 export function createScanPlan(command: ScanCommand, options: PlanOptions): ScanPlan {
   const { targetPath, targetUrl, authProfiles, config } = options;
@@ -55,7 +55,7 @@ export function createScanPlan(command: ScanCommand, options: PlanOptions): Scan
       };
 
     case 'scan-runtime':
-      if (!hasUrl) throw new Error('scan-runtime requires a target URL: appsec scan-runtime <url>');
+      if (!hasUrl) throw new Error('scan-runtime requires a target URL: cybermat scan-runtime <url>');
       return {
         targetUrl,
         layers: [
@@ -66,10 +66,10 @@ export function createScanPlan(command: ScanCommand, options: PlanOptions): Scan
       };
 
     case 'scan-auth':
-      if (!hasUrl) throw new Error('scan-auth requires a target URL: appsec scan-auth <url>');
+      if (!hasUrl) throw new Error('scan-auth requires a target URL: cybermat scan-auth <url>');
       if (!hasProfiles) {
         throw new Error(
-          'scan-auth requires auth profiles. Run: appsec auth init — then configure .appsec/auth/',
+          'scan-auth requires auth profiles. Run: cybermat auth init — then configure .cybermat/auth/',
         );
       }
       return {

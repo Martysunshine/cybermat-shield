@@ -10,7 +10,7 @@ const CONFIG: ScannerConfig = {
   ignoreDirs: [],
   ignoreFiles: [],
   maxFileSizeBytes: 1_000_000,
-  outputDir: '.appsec',
+  outputDir: '.cybermat',
 };
 
 // ─── Extension / filename sets ────────────────────────────────────────────────

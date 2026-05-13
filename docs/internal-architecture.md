@@ -15,7 +15,7 @@ loadConfig()
   → correlateSources()         # packages/analyzers/src/source-sink.ts
   → runRules()                 # packages/rules/src/**
   → deduplicateFindings()
-  → applyIgnoreRules()         # .appsecignore support
+  → applyIgnoreRules()         # .cybermatignore support
   → scoreReport()
   → writeReports()             # JSON + HTML
 ```
@@ -43,13 +43,13 @@ Analyzers are **fact extractors** — they read files and produce structured dat
 ### File Inventory
 
 Recursively scans the target directory. Hard-coded ignore directories:
-`node_modules`, `.next`, `dist`, `build`, `.git`, `coverage`, `.turbo`, `.vercel`, `.cache`, `.appsec`
+`node_modules`, `.next`, `dist`, `build`, `.git`, `coverage`, `.turbo`, `.vercel`, `.cache`, `.cybermat`
 
 Skips:
 - Binary files (files containing null bytes `\0`)
 - Files larger than `maxFileSizeBytes` (default: 1 MB)
 - Extensions not in the allowlist (text extensions only)
-- Paths matching `.appsecignore`
+- Paths matching `.cybermatignore`
 
 Each file gets a SHA-256 hash of its content for fingerprinting.
 
@@ -164,7 +164,7 @@ RuleContext (files, stack, routes, classifications, importGraph, parsedFiles)
   → Rule.run(context) → Finding[]
   → scanner: tagFindingLayer(finding, rule.layer)
   → deduplicateFindings() — by stable fingerprint (SHA1 of ruleId+file+line+evidence)
-  → applyIgnoreRules() — .appsecignore by file path, rule ID, fingerprint
+  → applyIgnoreRules() — .cybermatignore by file path, rule ID, fingerprint
   → filteredFindings[]
 ```
 
@@ -203,7 +203,7 @@ All report writers (`generateHtml`, `writeReports`) only use `evidence.redactedS
 
 Stable fingerprints are generated via SHA-1 from: `ruleId + file + Math.floor(line/5)*5 + redactedEvidence`. The `line bucket` (floored to nearest 5) ensures small refactors don't invalidate fingerprints. This enables:
 - Deduplication across rules
-- `.appsecignore` by fingerprint
+- `.cybermatignore` by fingerprint
 - Baseline diffing (Phase 8)
 
 ---
@@ -236,7 +236,7 @@ Several mechanisms reduce false positives:
 
 5. **Sanitizer detection**: Known sanitizers (DOMPurify, Zod, parameterized queries) reduce confidence when found between source and sink.
 
-6. **`.appsecignore`**: Users can ignore by file path glob, rule ID, or finding fingerprint.
+6. **`.cybermatignore`**: Users can ignore by file path glob, rule ID, or finding fingerprint.
 
 ---
 

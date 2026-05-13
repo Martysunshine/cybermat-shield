@@ -177,7 +177,7 @@ export async function runScan(
   options: ScanOptions = {},
 ): Promise<ScanReport> {
   const absolutePath = path.resolve(targetPath);
-  const outputDir = path.join(absolutePath, options.outputDir ?? '.appsec');
+  const outputDir = path.join(absolutePath, options.outputDir ?? '.cybermat');
 
   const config: ScannerConfig = {
     ...DEFAULT_CONFIG,

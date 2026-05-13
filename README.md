@@ -117,9 +117,9 @@ cybermat rules show <id>                # Full rule detail + examples
 cybermat rules docs                     # Generate docs/rules.md
 
 # ── Project setup ────────────────────────────────────────────
-cybermat init                           # Create .appsecignore + appsec.config.json
+cybermat init                           # Create .cybermatignore + cybermat.config.json
 cybermat doctor                         # Check Node, pnpm, Playwright, config
-cybermat config validate                # Validate appsec.config.json
+cybermat config validate                # Validate cybermat.config.json
 
 # ── Baseline diffing ─────────────────────────────────────────
 cybermat baseline create                # Snapshot current findings
@@ -152,7 +152,7 @@ npx next dev
 npx tsx --tsconfig scripts/tsconfig.json scripts/setup-auth-profiles.ts
 ```
 
-This logs in as each test user via Playwright and saves sessions to `.appsec/auth/`.
+This logs in as each test user via Playwright and saves sessions to `.cybermat/auth/`.
 
 ### Step 3 — Run the scanner
 
@@ -176,7 +176,7 @@ node packages/cli/dist/index.js scan-auth http://localhost:3000
 
 ## ⚙️ Configuration
 
-Run `cybermat init` to create `appsec.config.json`:
+Run `cybermat init` to create `cybermat.config.json`:
 
 ```json
 {
@@ -209,7 +209,7 @@ Full reference → [docs/configuration.md](docs/configuration.md)
 Push the included workflow and get SARIF results in your GitHub Security tab automatically:
 
 ```
-.github/workflows/appsec-scan.yml  ← already included
+.github/workflows/cybermat-scan.yml  ← already included
 ```
 
 On every push and PR it will:
@@ -263,7 +263,7 @@ Values < 8 chars → fully masked as `[REDACTED]`
 
 ## 🙈 Ignoring False Positives
 
-Create `.appsecignore` in your project root:
+Create `.cybermatignore` in your project root:
 
 ```
 # Ignore a directory
@@ -321,7 +321,7 @@ CyberMat Shield is **read-only and non-destructive**:
 - 🚫 Never brute-forces IDs or tokens
 - 🚫 Never stores or logs session credentials
 - 🚫 Never sends anything to external servers
-- ✅ Only writes to `.appsec/` output directory
+- ✅ Only writes to `.cybermat/` output directory
 
 Full details → [docs/safety-model.md](docs/safety-model.md)
 
@@ -399,7 +399,7 @@ node packages/cli/dist/index.js scan examples/vulnerable-next-app
 | Phase | What was built |
 |---|---|
 | ✅ 1 — MVP Foundation | Static scanner, Commander.js CLI, JSON + HTML reports |
-| ✅ 2 — Architecture Hardening | 66 secret detectors, engines layer, `.appsecignore` |
+| ✅ 2 — Architecture Hardening | 66 secret detectors, engines layer, `.cybermatignore` |
 | ✅ 3 — Three-Layer Architecture | Code/Runtime/Authz separation, ScanPlanner, docs |
 | ✅ 4 — Deep Static Analysis | AST analysis, source/sink correlation, route discovery |
 | ✅ 5 — Rule Pack System | RuleRegistry, 9 RulePacks, 95 rules, OWASP mapping |

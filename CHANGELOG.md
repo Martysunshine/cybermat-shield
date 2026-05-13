@@ -39,7 +39,7 @@ All notable changes to CyberMat Shield are documented here.
 ### Added
 
 **Phase 1 — MVP Foundation**
-- `appsec scan <path>` CLI command with terminal output, JSON and HTML reports
+- `cybermat scan <path>` CLI command with terminal output, JSON and HTML reports
 - 33 initial security rules across 6 categories
 - Risk score 0–100
 - Intentionally vulnerable Next.js example app
@@ -48,7 +48,7 @@ All notable changes to CyberMat Shield are documented here.
 - 66+ secret detectors (cloud keys, tokens, connection strings, private keys)
 - Context-aware severity (frontend vs backend file paths, NEXT_PUBLIC_ prefix)
 - Secret redaction — only first/last 4 chars visible in reports
-- `.appsecignore` file support — suppress by path, rule ID, or fingerprint
+- `.cybermatignore` file support — suppress by path, rule ID, or fingerprint
 - Stable finding fingerprints for deduplication
 
 **Phase 3 — Three-Layer Architecture**
@@ -69,19 +69,19 @@ All notable changes to CyberMat Shield are documented here.
 **Phase 5 — Rule Pack System + OWASP Mapping**
 - 95 rules across 9 packs with full metadata (OWASP Top 10:2025, CWE, ASVS, WSTG)
 - `RuleRegistry` — enable/disable rules, severity overrides, config-driven
-- `appsec rules list/show/docs` commands
+- `cybermat rules list/show/docs` commands
 - OWASP Top 10:2025 coverage mapping
 - Auto-generated `docs/rules.md` (95 rules)
 
 **Phase 6 — Safe Runtime Scanner**
-- `appsec scan-runtime <url>` — Playwright-based safe HTTP/browser scanner
+- `cybermat scan-runtime <url>` — Playwright-based safe HTTP/browser scanner
 - Scope enforcement — same-origin only, no destructive paths
 - `HeaderAnalyzer`, `CookieAnalyzer`, `CorsAnalyzer`, `ReflectionAnalyzer`, `RedirectAnalyzer`, `ExposedFileAnalyzer`
 - 48 unit tests
 
 **Phase 7 — Auth/Access-Control Scanner**
-- `appsec scan-auth <url>` — IDOR, vertical privilege, anonymous access, tenant boundary testing
-- `appsec auth init` + `appsec auth test-config`
+- `cybermat scan-auth <url>` — IDOR, vertical privilege, anonymous access, tenant boundary testing
+- `cybermat auth init` + `cybermat auth test-config`
 - Playwright storageState profiles + cookie/header profiles
 - `SensitiveResponseAnalyzer` — recursive JSON field detection
 - `ResponseComparator` — pass/suspicious/fail verdicts
@@ -93,11 +93,11 @@ All notable changes to CyberMat Shield are documented here.
 **Phase 8 — Productionization**
 - SARIF 2.1.0 output — compatible with GitHub code scanning
 - Markdown report format
-- Baseline diffing — `appsec baseline create/compare`, `--baseline` and `--ci` flags
-- `appsec init` — initialize project config, `.appsecignore`, and `.gitignore` entries
-- `appsec doctor` — environment check (Node, pnpm, Playwright, rule registry, config)
-- `appsec config validate` — validate `appsec.config.json`
-- `appsec report` — generate SARIF/Markdown from saved JSON report
+- Baseline diffing — `cybermat baseline create/compare`, `--baseline` and `--ci` flags
+- `cybermat init` — initialize project config, `.cybermatignore`, and `.gitignore` entries
+- `cybermat doctor` — environment check (Node, pnpm, Playwright, rule registry, config)
+- `cybermat config validate` — validate `cybermat.config.json`
+- `cybermat report` — generate SARIF/Markdown from saved JSON report
 - Stable exit codes: 0 clean, 1 findings, 2 error, 3 config error, 4 missing dep, 5 new baseline findings
 - GitHub Actions workflow with SARIF upload and PR comments
 - `docs/ci.md`, `docs/configuration.md`, `docs/safety-model.md`

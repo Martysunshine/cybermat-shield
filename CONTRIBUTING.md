@@ -50,7 +50,7 @@ node packages/cli/dist/index.js scan-runtime http://localhost:3000
 4. Map it to OWASP Top 10:2025 and at least one CWE
 5. Add an `insecureExample` and `saferExample`
 6. Add a test fixture to `examples/vulnerable-next-app/` if applicable
-7. Run `appsec rules docs` to regenerate `docs/rules.md`
+7. Run `cybermat rules docs` to regenerate `docs/rules.md`
 
 ### Rule metadata required fields
 
@@ -83,9 +83,9 @@ node packages/cli/dist/index.js scan-runtime http://localhost:3000
 - [ ] New rules have `insecureExample`, `saferExample`, and OWASP mapping
 - [ ] Changes do not break existing tests (`pnpm test`)
 - [ ] Changes do not break the build (`pnpm build`)
-- [ ] `appsec scan examples/vulnerable-next-app` still produces expected findings
+- [ ] `cybermat scan examples/vulnerable-next-app` still produces expected findings
 - [ ] No raw secrets in any committed file
-- [ ] `docs/rules.md` regenerated if rules changed (`appsec rules docs`)
+- [ ] `docs/rules.md` regenerated if rules changed (`cybermat rules docs`)
 
 ---
 

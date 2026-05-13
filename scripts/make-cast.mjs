@@ -94,7 +94,7 @@ function lineDelay(raw) {
   if (/Risk Score:/.test(s))                                 return 0.40;
   if (/Critical:|High:|Medium:|Low:|Info:/.test(s))          return 0.10;
   if (/Top recommended|Reports saved/.test(s))               return 0.08;
-  if (/\.appsec[/\\]/.test(s))                               return 0.06;
+  if (/\.cybermat[/\\]/.test(s))                               return 0.06;
   return 0.09;
 }
 

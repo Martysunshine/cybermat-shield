@@ -10,7 +10,7 @@ const IGNORE_DIRS = new Set([
   'node_modules', '.next', 'dist', 'build', '.git',
   'coverage', '.turbo', '.vercel', '.cache', 'out',
   '.svelte-kit', '__pycache__', '.pytest_cache', '.nuxt',
-  '.appsec',
+  '.cybermat',
 ]);
 
 // ─── Scannable extensions ─────────────────────────────────────────────────────
