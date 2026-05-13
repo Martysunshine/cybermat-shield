@@ -5,7 +5,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as childProcess from 'child_process';
-import { Worker } from 'worker_threads';
 import type {
   ScanReport, Finding, Severity, RuleMetadata, RuleEngine,
   RuntimeScanReport, RuntimeFinding, AuthScanReport, AuthzFinding, AuthScanConfig,
@@ -270,60 +269,66 @@ function generateRulesDocs(rules: RuleMetadata[]): string {
   return lines.join('\n');
 }
 
-// ─── Progress Spinner (worker-thread based) ──────────────────────────────────
-// Runs in a separate thread so it keeps spinning even when the main thread is
-// blocked by synchronous rule execution (regex over thousands of files).
+// ─── Progress Spinner (child-process based) ──────────────────────────────────
+// Runs in a child process with stderr=inherit so it writes directly to the
+// terminal's fd=2, fully independent of the main thread's event loop.
+// Worker threads route their stderr through the main-thread pipe and buffer
+// when the main thread is blocked — child process inherit does not.
 
-const SPINNER_WORKER_CODE = `
-const { parentPort } = require('worker_threads');
-const FRAMES = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
-let frameIdx = 0;
-const startMs = Date.now();
-let msg = '';
-let pct = 0;
-let active = false;
-setInterval(() => {
+const SPINNER_CHILD_CODE = `
+const rl = require('readline').createInterface({ input: process.stdin, crlfDelay: Infinity });
+const F = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+let fi = 0, t0 = Date.now(), msg = '', pct = 0, active = false;
+const timer = setInterval(() => {
   if (!active) return;
-  const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
-  const frame = FRAMES[frameIdx++ % FRAMES.length];
-  process.stderr.write('\\r  ' + frame + ' ' + msg.padEnd(46) + ' \\x1b[36m' + String(pct).padStart(3) + '%\\x1b[0m   [' + elapsed + 's]');
+  const s = ((Date.now() - t0) / 1000).toFixed(1);
+  process.stderr.write('\\r  ' + F[fi++ % F.length] + ' ' + msg.padEnd(46) + ' \\x1b[36m' + String(pct).padStart(3) + '%\\x1b[0m   [' + s + 's]');
 }, 80);
-parentPort.on('message', (m) => {
-  if (m.type === 'start') {
-    active = true; msg = m.msg; pct = m.pct ?? 0;
-  } else if (m.type === 'update') {
-    msg = m.msg; if (m.pct !== undefined) pct = m.pct;
-  } else if (m.type === 'done') {
-    active = false;
-    const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
-    process.stderr.write('\\r  \\x1b[32m✓\\x1b[0m ' + (m.msg || msg).padEnd(46) + ' \\x1b[36m' + String(m.pct ?? pct).padStart(3) + '%\\x1b[0m   [' + elapsed + 's]\\n');
-  }
+rl.on('line', line => {
+  try {
+    const m = JSON.parse(line);
+    if (m.type === 'start') { active = true; msg = m.msg; pct = m.pct || 0; }
+    else if (m.type === 'update') { msg = m.msg; if (m.pct != null) pct = m.pct; }
+    else if (m.type === 'done') {
+      active = false;
+      const s = ((Date.now() - t0) / 1000).toFixed(1);
+      process.stderr.write('\\r  \\x1b[32m✓\\x1b[0m ' + (m.msg || msg).padEnd(46) + ' \\x1b[36m' + String(m.pct != null ? m.pct : pct).padStart(3) + '%\\x1b[0m   [' + s + 's]\\n');
+    } else if (m.type === 'stop') {
+      clearInterval(timer);
+      process.stderr.write('\\r' + ' '.repeat(72) + '\\r');
+      process.exit(0);
+    }
+  } catch(e) {}
 });
+rl.on('close', () => process.exit(0));
 `;
 
 class ProgressSpinner {
-  private readonly worker: Worker;
+  private readonly proc: ReturnType<typeof childProcess.spawn>;
 
   constructor() {
-    this.worker = new Worker(SPINNER_WORKER_CODE, { eval: true });
-    this.worker.unref();
+    this.proc = childProcess.spawn(
+      process.execPath,
+      ['-e', SPINNER_CHILD_CODE],
+      { stdio: ['pipe', 'ignore', 'inherit'] },
+    );
+    this.proc.unref();
   }
 
-  start(msg: string, pct = 0): void {
-    this.worker.postMessage({ type: 'start', msg, pct });
+  private send(m: object): void {
+    try { this.proc.stdin?.write(JSON.stringify(m) + '\n'); } catch (_) { /* ignore */ }
   }
 
-  update(msg: string, pct: number): void {
-    this.worker.postMessage({ type: 'update', msg, pct });
-  }
-
-  done(msg: string, pct: number): void {
-    this.worker.postMessage({ type: 'done', msg, pct });
-  }
+  start(msg: string, pct = 0): void { this.send({ type: 'start', msg, pct }); }
+  update(msg: string, pct: number): void { this.send({ type: 'update', msg, pct }); }
+  done(msg: string, pct: number): void { this.send({ type: 'done', msg, pct }); }
 
   async stop(): Promise<void> {
-    process.stderr.write('\r' + ' '.repeat(72) + '\r');
-    await this.worker.terminate();
+    this.send({ type: 'stop' });
+    await new Promise<void>(resolve => {
+      this.proc.once('exit', () => resolve());
+      setTimeout(resolve, 300);
+    });
   }
 }
 
