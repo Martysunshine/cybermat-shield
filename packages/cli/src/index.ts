@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as childProcess from 'child_process';
+import { Worker } from 'worker_threads';
 import type {
   ScanReport, Finding, Severity, RuleMetadata, RuleEngine,
   RuntimeScanReport, RuntimeFinding, AuthScanReport, AuthzFinding, AuthScanConfig,
@@ -269,46 +270,60 @@ function generateRulesDocs(rules: RuleMetadata[]): string {
   return lines.join('\n');
 }
 
-// ─── Progress Spinner ─────────────────────────────────────────────────────
+// ─── Progress Spinner (worker-thread based) ──────────────────────────────────
+// Runs in a separate thread so it keeps spinning even when the main thread is
+// blocked by synchronous rule execution (regex over thousands of files).
+
+const SPINNER_WORKER_CODE = `
+const { parentPort } = require('worker_threads');
+const FRAMES = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+let frameIdx = 0;
+const startMs = Date.now();
+let msg = '';
+let pct = 0;
+let active = false;
+setInterval(() => {
+  if (!active) return;
+  const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
+  const frame = FRAMES[frameIdx++ % FRAMES.length];
+  process.stderr.write('\\r  ' + frame + ' ' + msg.padEnd(46) + ' \\x1b[36m' + String(pct).padStart(3) + '%\\x1b[0m   [' + elapsed + 's]');
+}, 80);
+parentPort.on('message', (m) => {
+  if (m.type === 'start') {
+    active = true; msg = m.msg; pct = m.pct ?? 0;
+  } else if (m.type === 'update') {
+    msg = m.msg; if (m.pct !== undefined) pct = m.pct;
+  } else if (m.type === 'done') {
+    active = false;
+    const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
+    process.stderr.write('\\r  \\x1b[32m✓\\x1b[0m ' + (m.msg || msg).padEnd(46) + ' \\x1b[36m' + String(m.pct ?? pct).padStart(3) + '%\\x1b[0m   [' + elapsed + 's]\\n');
+  }
+});
+`;
 
 class ProgressSpinner {
-  private readonly frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-  private frameIdx = 0;
-  private timer: ReturnType<typeof setInterval> | null = null;
-  private readonly startMs = Date.now();
-  private currentMsg = '';
-  private pct = 0;
+  private readonly worker: Worker;
+
+  constructor() {
+    this.worker = new Worker(SPINNER_WORKER_CODE, { eval: true });
+    this.worker.unref();
+  }
 
   start(msg: string, pct = 0): void {
-    if (this.timer) clearInterval(this.timer);
-    this.currentMsg = msg;
-    this.pct = pct;
-    this.render();
-    this.timer = setInterval(() => this.render(), 80);
+    this.worker.postMessage({ type: 'start', msg, pct });
   }
 
   update(msg: string, pct: number): void {
-    this.currentMsg = msg;
-    this.pct = pct;
-  }
-
-  private render(): void {
-    const elapsed = ((Date.now() - this.startMs) / 1000).toFixed(1);
-    const frame = this.frames[this.frameIdx++ % this.frames.length];
-    const pctStr = chalk.cyan(`${this.pct}%`.padStart(4));
-    process.stderr.write(`\r  ${frame} ${this.currentMsg.padEnd(46)} ${pctStr}   [${elapsed}s]`);
+    this.worker.postMessage({ type: 'update', msg, pct });
   }
 
   done(msg: string, pct: number): void {
-    if (this.timer) { clearInterval(this.timer); this.timer = null; }
-    const elapsed = ((Date.now() - this.startMs) / 1000).toFixed(1);
-    const pctStr = chalk.cyan(`${pct}%`.padStart(4));
-    process.stderr.write(`\r  ${chalk.green('✓')} ${msg.padEnd(46)} ${pctStr}   [${elapsed}s]\n`);
+    this.worker.postMessage({ type: 'done', msg, pct });
   }
 
-  stop(): void {
-    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+  async stop(): Promise<void> {
     process.stderr.write('\r' + ' '.repeat(72) + '\r');
+    await this.worker.terminate();
   }
 }
 
@@ -658,7 +673,7 @@ program
         return;
       }
 
-      spinner?.stop();
+      await spinner?.stop();
       console.log('');
       printReport(report, diff);
 
@@ -720,7 +735,7 @@ program
       process.exit(0);
 
     } catch (err) {
-      spinner?.stop();
+      await spinner?.stop();
       console.error(chalk.red('  Scan failed:'), err);
       process.exit(2);
     }
