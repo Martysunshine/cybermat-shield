@@ -5,6 +5,7 @@ import type {
   ScannerConfig, DetectedStack, Severity, ScannerLayer, ScanMetadata, ScanCoverage,
   RouteInfo, FileClassification, ParsedFile,
   RuleExecutionResult, EngineHealth, ScannedFile,
+  DangerousCall, UserInputSource,
 } from '@cybermat/shared';
 import { DEFAULT_CONFIG } from '@cybermat/shared';
 import { buildFileInventory } from './file-inventory';
@@ -144,8 +145,8 @@ function tagFindingLayer(f: Finding, ruleLayer: ScannerLayer | undefined): Findi
 
 /** Build ParsedFile entries from AST analysis results */
 function buildParsedFiles(
-  sinks: ReturnType<typeof analyzeAst>['sinks'],
-  sources: ReturnType<typeof analyzeAst>['sources'],
+  sinks: DangerousCall[],
+  sources: UserInputSource[],
 ): ParsedFile[] {
   const byFile = new Map<string, ParsedFile>();
 
@@ -220,16 +221,12 @@ export async function runScan(
   const detectedStack: DetectedStack = detectStack(files, packageJson);
   const primaryFramework = detectedStack.frameworks[0] ?? 'unknown';
 
-  // 3–6. Analysis — each call is synchronous; yield between them so the spinner can tick
+  // 3–6. Analysis — all async with internal per-file yields; spinner stays live throughout
   onProgress?.('analysis', 'Analyzing code structure (AST, imports, routes)...');
-  await yld();
-  const fileClassifications: FileClassification[] = classifyFiles(files);
-  await yld();
-  const { routes }: { routes: RouteInfo[] } = discoverRoutes(files, primaryFramework);
-  await yld();
-  const importGraph = buildImportGraph(files);
-  await yld();
-  const { sinks, sources } = analyzeAst(files);
+  const fileClassifications: FileClassification[] = await classifyFiles(files);
+  const { routes }: { routes: RouteInfo[] } = await discoverRoutes(files, primaryFramework);
+  const importGraph = await buildImportGraph(files);
+  const { sinks, sources } = await analyzeAst(files);
 
   // 7. Build parsed files list
   const parsedFiles = buildParsedFiles(sinks, sources);

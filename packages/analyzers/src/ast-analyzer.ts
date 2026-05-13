@@ -97,11 +97,15 @@ const SOURCE_PATTERNS: SourcePattern[] = [
 /** Extensions safe to feed into the JS/TS parser. Non-JS files must never enter this path. */
 const JS_TS_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 
-export function analyzeAst(files: ScannedFile[]): AstAnalysisResult {
+export async function analyzeAst(files: ScannedFile[]): Promise<AstAnalysisResult> {
   const sinks: DangerousCall[] = [];
   const sources: UserInputSource[] = [];
 
-  for (const file of files) {
+  for (let fi = 0; fi < files.length; fi++) {
+    // Yield every 50 files so the event loop stays free for the spinner
+    if (fi > 0 && fi % 50 === 0) await new Promise<void>(resolve => setImmediate(resolve));
+
+    const file = files[fi];
     if (!JS_TS_EXTENSIONS.has(file.extension)) continue;
 
     const lines = file.content.split('\n');

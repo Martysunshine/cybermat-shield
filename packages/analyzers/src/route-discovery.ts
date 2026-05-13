@@ -104,11 +104,15 @@ function extractNextMethods(content: string): Array<'GET' | 'POST' | 'PUT' | 'PA
   return methods.length > 0 ? methods : ['ANY' as any];
 }
 
-function discoverNextJsRoutes(files: ScannedFile[]): RouteInfo[] {
+async function discoverNextJsRoutes(files: ScannedFile[]): Promise<RouteInfo[]> {
   const routes: RouteInfo[] = [];
 
+  const yld = () => new Promise<void>(resolve => setImmediate(resolve));
+
   // App router: app/**/route.ts
-  for (const file of files) {
+  for (let fi = 0; fi < files.length; fi++) {
+    if (fi > 0 && fi % 100 === 0) await yld();
+    const file = files[fi];
     const rel = file.relativePath;
     if (!rel.match(/^(?:src\/)?app\/.*\/route\.(ts|js)$/)) continue;
 
@@ -133,7 +137,9 @@ function discoverNextJsRoutes(files: ScannedFile[]): RouteInfo[] {
   }
 
   // App router: app/**/page.tsx (UI routes)
-  for (const file of files) {
+  for (let fi = 0; fi < files.length; fi++) {
+    if (fi > 0 && fi % 100 === 0) await yld();
+    const file = files[fi];
     const rel = file.relativePath;
     if (!rel.match(/^(?:src\/)?app\/.*\/page\.(tsx|jsx)$/)) continue;
 
@@ -149,7 +155,9 @@ function discoverNextJsRoutes(files: ScannedFile[]): RouteInfo[] {
   }
 
   // Pages router: pages/api/**
-  for (const file of files) {
+  for (let fi = 0; fi < files.length; fi++) {
+    if (fi > 0 && fi % 100 === 0) await yld();
+    const file = files[fi];
     const rel = file.relativePath;
     if (!rel.match(/^(?:src\/)?pages\/api\//) || !['.ts', '.js'].includes(file.extension)) continue;
 
@@ -169,7 +177,9 @@ function discoverNextJsRoutes(files: ScannedFile[]): RouteInfo[] {
   }
 
   // Pages router: pages/** (non-api)
-  for (const file of files) {
+  for (let fi = 0; fi < files.length; fi++) {
+    if (fi > 0 && fi % 100 === 0) await yld();
+    const file = files[fi];
     const rel = file.relativePath;
     if (!rel.match(/^(?:src\/)?pages\//) || rel.includes('/api/')) continue;
     if (!['.tsx', '.jsx', '.ts', '.js'].includes(file.extension)) continue;
@@ -189,11 +199,13 @@ function discoverNextJsRoutes(files: ScannedFile[]): RouteInfo[] {
   return routes;
 }
 
-function discoverExpressRoutes(files: ScannedFile[]): RouteInfo[] {
+async function discoverExpressRoutes(files: ScannedFile[]): Promise<RouteInfo[]> {
   const routes: RouteInfo[] = [];
   const METHOD_RE = /(?:app|router)\.(?<method>get|post|put|patch|delete|use)\s*\(\s*['"`](?<path>[^'"`]+)['"`]/gi;
 
-  for (const file of files) {
+  for (let fi = 0; fi < files.length; fi++) {
+    if (fi > 0 && fi % 100 === 0) await new Promise<void>(resolve => setImmediate(resolve));
+    const file = files[fi];
     if (!['.ts', '.js', '.mjs'].includes(file.extension)) continue;
     if (!file.content.includes('express')) continue;
 
@@ -219,15 +231,15 @@ function discoverExpressRoutes(files: ScannedFile[]): RouteInfo[] {
   return routes;
 }
 
-export function discoverRoutes(files: ScannedFile[], framework: string): RouteDiscoveryResult {
+export async function discoverRoutes(files: ScannedFile[], framework: string): Promise<RouteDiscoveryResult> {
   const routes: RouteInfo[] = [];
 
   if (framework === 'Next.js' || files.some(f => f.relativePath.match(/^(?:src\/)?app\//) || f.relativePath.match(/^(?:src\/)?pages\//))) {
-    routes.push(...discoverNextJsRoutes(files));
+    routes.push(...await discoverNextJsRoutes(files));
   }
 
   if (framework === 'Express' || files.some(f => f.content.includes('express'))) {
-    routes.push(...discoverExpressRoutes(files));
+    routes.push(...await discoverExpressRoutes(files));
   }
 
   // De-duplicate by route + method + file

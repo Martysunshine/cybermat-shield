@@ -69,13 +69,17 @@ function isServerFile(relativePath: string, content: string): boolean {
     relativePath === 'middleware.js';
 }
 
-export function buildImportGraph(files: ScannedFile[]): ImportGraph {
+export async function buildImportGraph(files: ScannedFile[]): Promise<ImportGraph> {
   const nodes: string[] = files.map(f => f.relativePath);
   const edges: ImportEdge[] = [];
   const serverClientLeaks: string[] = [];
   const clientServerLeaks: string[] = [];
 
-  for (const file of files) {
+  for (let fi = 0; fi < files.length; fi++) {
+    // Yield every 100 files so the event loop stays free for the spinner
+    if (fi > 0 && fi % 100 === 0) await new Promise<void>(resolve => setImmediate(resolve));
+
+    const file = files[fi];
     if (!['.ts', '.tsx', '.js', '.jsx', '.mjs'].includes(file.extension)) continue;
 
     const imports = extractImports(file.content);

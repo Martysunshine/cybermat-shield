@@ -150,6 +150,12 @@ function classifyOne(file: ScannedFile): FileClassification {
   return { file: rel, kind: 'unknown', confidence: 'low', reasons: ['No clear classification signals found'] };
 }
 
-export function classifyFiles(files: ScannedFile[]): FileClassification[] {
-  return files.map(classifyOne);
+export async function classifyFiles(files: ScannedFile[]): Promise<FileClassification[]> {
+  const result: FileClassification[] = [];
+  for (let fi = 0; fi < files.length; fi++) {
+    result.push(classifyOne(files[fi]));
+    // Yield every 100 files so the event loop stays free for the spinner
+    if (fi > 0 && fi % 100 === 0) await new Promise<void>(resolve => setImmediate(resolve));
+  }
+  return result;
 }
