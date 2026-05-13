@@ -26,7 +26,6 @@
 ## 🚀 Quick Start
 
 ```bash
-cd your-project
 npx cybermat scan .
 ```
 
