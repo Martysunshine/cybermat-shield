@@ -1,6 +1,6 @@
 {
   "name": "cybermat",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "CyberMat Shield — local-first application security scanner (static, runtime, auth/access-control)",
   "keywords": [
     "security",

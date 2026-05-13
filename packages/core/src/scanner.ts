@@ -250,6 +250,8 @@ export async function runScan(
   const scanStart = performance.now();
   const executionResults: RuleExecutionResult[] = await Promise.all(
     rules.map(async (r): Promise<RuleExecutionResult> => {
+      // Yield before each rule so the event loop (and spinner) can tick between rules
+      await new Promise<void>(resolve => setImmediate(resolve));
       const ruleStart = performance.now();
       try {
         const findings = await raceTimeout(r.run(ruleContext), ruleTimeoutMs, r.id);
