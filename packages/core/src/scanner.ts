@@ -204,10 +204,14 @@ export async function runScan(
 
   // ── Pipeline ──────────────────────────────────────────────────────────────
 
+  // Yields the event loop so setInterval-based spinners can render between phases
+  const yld = (): Promise<void> => new Promise(resolve => setImmediate(resolve));
+
   // 1. Load config & inventory
   const packageJson = loadPackageJson(absolutePath);
   onProgress?.('inventory', 'Building file inventory...');
-  const { files, ignored, skippedByReason, cappedAt } = buildFileInventory(absolutePath, config);
+  // buildFileInventory is async and yields every 100 files — spinner stays live throughout
+  const { files, ignored, skippedByReason, cappedAt } = await buildFileInventory(absolutePath, config);
   const ignoreRules = loadIgnoreRules(absolutePath);
   const capNote = cappedAt ? ` (capped at ${cappedAt} — use --max-files to raise)` : '';
   onProgress?.('inventory_done', `Found ${files.length} files${capNote}, ${ignored} dirs ignored`);
@@ -216,17 +220,15 @@ export async function runScan(
   const detectedStack: DetectedStack = detectStack(files, packageJson);
   const primaryFramework = detectedStack.frameworks[0] ?? 'unknown';
 
-  // 3. Classify files
+  // 3–6. Analysis — each call is synchronous; yield between them so the spinner can tick
   onProgress?.('analysis', 'Analyzing code structure (AST, imports, routes)...');
+  await yld();
   const fileClassifications: FileClassification[] = classifyFiles(files);
-
-  // 4. Discover routes
+  await yld();
   const { routes }: { routes: RouteInfo[] } = discoverRoutes(files, primaryFramework);
-
-  // 5. Build import graph
+  await yld();
   const importGraph = buildImportGraph(files);
-
-  // 6. AST analysis
+  await yld();
   const { sinks, sources } = analyzeAst(files);
 
   // 7. Build parsed files list

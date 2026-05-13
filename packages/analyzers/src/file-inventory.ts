@@ -170,20 +170,21 @@ function looksLikeBinary(fullPath: string): boolean {
 
 // ─── Main inventory builder ───────────────────────────────────────────────────
 
-export function buildFileInventory(rootPath: string, config: ScannerConfig): FileInventoryResult {
+export async function buildFileInventory(rootPath: string, config: ScannerConfig): Promise<FileInventoryResult> {
   const files: ScannedFile[] = [];
   let ignored = 0;
   let skipped = 0;
   const skippedByReason: Record<string, number> = {};
   let cappedAt: number | undefined;
   const fileCap = config.maxFiles ?? 10_000;
+  let filesSinceYield = 0;
 
   function bumpSkip(reason: string): void {
     skipped++;
     skippedByReason[reason] = (skippedByReason[reason] ?? 0) + 1;
   }
 
-  function scan(dir: string): void {
+  async function scan(dir: string): Promise<void> {
     if (cappedAt !== undefined) return;
     let entries: fs.Dirent[];
     try {
@@ -216,7 +217,7 @@ export function buildFileInventory(rootPath: string, config: ScannerConfig): Fil
           ignored++;
           continue;
         }
-        scan(fullPath);
+        await scan(fullPath);
         continue;
       }
 
@@ -297,9 +298,15 @@ export function buildFileInventory(rootPath: string, config: ScannerConfig): Fil
         fileKind,
         ecosystem,
       });
+
+      // Yield every 100 files so the event loop stays free for the spinner
+      if (++filesSinceYield >= 100) {
+        filesSinceYield = 0;
+        await new Promise<void>(resolve => setImmediate(resolve));
+      }
     }
   }
 
-  scan(rootPath);
+  await scan(rootPath);
   return { files, ignored, skipped, skippedByReason, cappedAt };
 }
