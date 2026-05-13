@@ -26,7 +26,8 @@
 ## 🚀 Quick Start
 
 ```bash
-npx cybermat scan ./your-project
+cd your-project
+npx cybermat scan .
 ```
 
 No install required. Node ≥18.
@@ -35,7 +36,8 @@ No install required. Node ≥18.
 
 ```bash
 npm install -g cybermat
-cybermat scan ./your-project
+cd your-project
+cybermat scan .
 ```
 
 ### Build from source
@@ -44,7 +46,7 @@ cybermat scan ./your-project
 git clone https://github.com/Martysunshine/cybermat-shield.git
 cd cybermat-shield
 pnpm install && pnpm build
-node packages/cli/dist/index.js scan ./your-project
+node packages/cli/dist/index.js scan examples/vulnerable-next-app
 ```
 
 ---

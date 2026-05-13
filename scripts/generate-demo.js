@@ -54,7 +54,7 @@ const spinSeg = (fr) => ({ t: `  ${SP[fr]} `, c: C.gray });
 
 const LINES = [
   // ── Command ────────────────────────────────────────────────────────────────
-  { d: 0.4,  row: 0,  s: [{t:'$ ', c:C.green, b:true}, {t:'npx cybermat scan ./your-project', c:C.wbold, b:true}] },
+  { d: 0.4,  row: 0,  s: [{t:'$ ', c:C.green, b:true}, {t:'npx cybermat scan .', c:C.wbold, b:true}] },
   { d: 0.9,  row: 1,  s: [] },
 
   // ── Banner ─────────────────────────────────────────────────────────────────
