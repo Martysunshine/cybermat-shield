@@ -248,37 +248,38 @@ export async function runScan(
 
   let rulesCompleted = 0;
   const scanStart = performance.now();
-  const executionResults: RuleExecutionResult[] = await Promise.all(
-    rules.map(async (r): Promise<RuleExecutionResult> => {
-      // Yield before each rule so the event loop (and spinner) can tick between rules
-      await new Promise<void>(resolve => setImmediate(resolve));
-      const ruleStart = performance.now();
-      try {
-        const findings = await raceTimeout(r.run(ruleContext), ruleTimeoutMs, r.id);
-        onProgress?.('rule_done', `${++rulesCompleted}/${rules.length}`);
-        return {
-          ruleId: r.id,
-          ruleName: r.name,
-          status: 'success',
-          findings: findings.map(f => tagFindingLayer(f, r.layer)),
-          durationMs: Math.round(performance.now() - ruleStart),
-          layer: r.layer,
-        };
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        onProgress?.('rule_done', `${++rulesCompleted}/${rules.length}`);
-        return {
-          ruleId: r.id,
-          ruleName: r.name,
-          status: 'failed',
-          findings: [],
-          error: message,
-          durationMs: Math.round(performance.now() - ruleStart),
-          layer: r.layer,
-        };
-      }
-    })
-  );
+  const executionResults: RuleExecutionResult[] = [];
+  // Sequential loop — rules are synchronous internally so Promise.all offers no parallelism.
+  // Sequential + setImmediate yield lets the event loop cycle fully between every rule,
+  // so the spinner ticks throughout instead of freezing for the entire phase.
+  for (const r of rules) {
+    await new Promise<void>(resolve => setImmediate(resolve));
+    const ruleStart = performance.now();
+    try {
+      const findings = await raceTimeout(r.run(ruleContext), ruleTimeoutMs, r.id);
+      onProgress?.('rule_done', `${++rulesCompleted}/${rules.length}`);
+      executionResults.push({
+        ruleId: r.id,
+        ruleName: r.name,
+        status: 'success',
+        findings: findings.map(f => tagFindingLayer(f, r.layer)),
+        durationMs: Math.round(performance.now() - ruleStart),
+        layer: r.layer,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      onProgress?.('rule_done', `${++rulesCompleted}/${rules.length}`);
+      executionResults.push({
+        ruleId: r.id,
+        ruleName: r.name,
+        status: 'failed',
+        findings: [],
+        error: message,
+        durationMs: Math.round(performance.now() - ruleStart),
+        layer: r.layer,
+      });
+    }
+  }
   const scanDurationMs = Math.round(performance.now() - scanStart);
   const totalFindings = executionResults.reduce((n, r) => n + r.findings.length, 0);
   onProgress?.('rules_done', `${totalFindings} finding${totalFindings !== 1 ? 's' : ''} from ${rules.length} rules`);
