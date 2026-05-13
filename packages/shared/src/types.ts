@@ -184,6 +184,10 @@ export interface ScannerConfig {
   strictRuleFailures?: boolean;
   /** Enable verbose debug output (per-rule timing, full error messages) */
   debug?: boolean;
+  /** Hard cap on files loaded into memory. Default: 10_000. Use 0 to disable. */
+  maxFiles?: number;
+  /** Max milliseconds a single rule may run before it is cancelled. Default: 30_000. */
+  ruleTimeoutMs?: number;
 }
 
 export interface RuleContext {
@@ -336,6 +340,9 @@ export interface ScanOptions {
   rulesConfig?: RulesConfig;
   strictRuleFailures?: boolean;
   debug?: boolean;
+  maxFiles?: number;
+  ruleTimeoutMs?: number;
+  onProgress?: (phase: string, detail?: string) => void;
 }
 
 export const DEFAULT_CONFIG: ScannerConfig = {
@@ -343,6 +350,8 @@ export const DEFAULT_CONFIG: ScannerConfig = {
   ignoreFiles: [],
   maxFileSizeBytes: 1_000_000,
   outputDir: '.cybermat',
+  maxFiles: 0,
+  ruleTimeoutMs: 30_000,
 };
 
 // ─── Runtime Scan Types ───────────────────────────────────────────────────────

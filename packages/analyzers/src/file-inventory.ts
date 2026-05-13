@@ -131,6 +131,8 @@ export interface FileInventoryResult {
   skipped: number;
   /** Breakdown of skipped files by reason */
   skippedByReason: Record<string, number>;
+  /** Set to the maxFiles cap value if the file limit was hit before traversal completed */
+  cappedAt?: number;
 }
 
 // ─── Binary detection ─────────────────────────────────────────────────────────
@@ -173,6 +175,8 @@ export function buildFileInventory(rootPath: string, config: ScannerConfig): Fil
   let ignored = 0;
   let skipped = 0;
   const skippedByReason: Record<string, number> = {};
+  let cappedAt: number | undefined;
+  const fileCap = config.maxFiles ?? 10_000;
 
   function bumpSkip(reason: string): void {
     skipped++;
@@ -180,6 +184,7 @@ export function buildFileInventory(rootPath: string, config: ScannerConfig): Fil
   }
 
   function scan(dir: string): void {
+    if (cappedAt !== undefined) return;
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -269,6 +274,11 @@ export function buildFileInventory(rootPath: string, config: ScannerConfig): Fil
         continue;
       }
 
+      if (fileCap > 0 && files.length >= fileCap) {
+        cappedAt = fileCap;
+        return;
+      }
+
       const sha256 = crypto.createHash('sha256').update(content).digest('hex');
 
       // Classify language, fileKind, ecosystem
@@ -291,5 +301,5 @@ export function buildFileInventory(rootPath: string, config: ScannerConfig): Fil
   }
 
   scan(rootPath);
-  return { files, ignored, skipped, skippedByReason };
+  return { files, ignored, skipped, skippedByReason, cappedAt };
 }

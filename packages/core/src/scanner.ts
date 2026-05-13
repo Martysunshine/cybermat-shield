@@ -16,7 +16,6 @@ import { classifyFiles } from '@cybermat/analyzers';
 import { discoverRoutes } from '@cybermat/analyzers';
 import { buildImportGraph } from '@cybermat/analyzers';
 import { analyzeAst } from '@cybermat/analyzers';
-import { correlateSources } from '@cybermat/analyzers';
 
 const SCANNER_VERSION = '0.5.0';
 
@@ -171,6 +170,19 @@ function buildParsedFiles(
   return [...byFile.values()];
 }
 
+function raceTimeout<T>(promise: Promise<T>, ms: number, ruleId: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`Timed out after ${ms}ms`)),
+      ms,
+    );
+    promise.then(
+      val => { clearTimeout(timer); resolve(val); },
+      err => { clearTimeout(timer); reject(err as Error); },
+    );
+  });
+}
+
 export async function runScan(
   targetPath: string,
   rules: Rule[],
@@ -178,26 +190,34 @@ export async function runScan(
 ): Promise<ScanReport> {
   const absolutePath = path.resolve(targetPath);
   const outputDir = path.join(absolutePath, options.outputDir ?? '.cybermat');
+  const { onProgress } = options;
 
   const config: ScannerConfig = {
     ...DEFAULT_CONFIG,
     outputDir,
     strictRuleFailures: options.strictRuleFailures,
     debug: options.debug,
+    ...(options.maxFiles !== undefined ? { maxFiles: options.maxFiles } : {}),
+    ...(options.ruleTimeoutMs !== undefined ? { ruleTimeoutMs: options.ruleTimeoutMs } : {}),
   };
+  const ruleTimeoutMs = config.ruleTimeoutMs ?? 30_000;
 
   // ── Pipeline ──────────────────────────────────────────────────────────────
 
   // 1. Load config & inventory
   const packageJson = loadPackageJson(absolutePath);
-  const { files, ignored, skippedByReason } = buildFileInventory(absolutePath, config);
+  onProgress?.('inventory', 'Building file inventory...');
+  const { files, ignored, skippedByReason, cappedAt } = buildFileInventory(absolutePath, config);
   const ignoreRules = loadIgnoreRules(absolutePath);
+  const capNote = cappedAt ? ` (capped at ${cappedAt} — use --max-files to raise)` : '';
+  onProgress?.('inventory_done', `Found ${files.length} files${capNote}, ${ignored} dirs ignored`);
 
   // 2. Detect stack
   const detectedStack: DetectedStack = detectStack(files, packageJson);
   const primaryFramework = detectedStack.frameworks[0] ?? 'unknown';
 
   // 3. Classify files
+  onProgress?.('analysis', 'Analyzing code structure (AST, imports, routes)...');
   const fileClassifications: FileClassification[] = classifyFiles(files);
 
   // 4. Discover routes
@@ -209,14 +229,12 @@ export async function runScan(
   // 6. AST analysis
   const { sinks, sources } = analyzeAst(files);
 
-  // 7. Source/sink correlation (for extra context — not yet used to modify findings)
-  const fileContentsMap = new Map(files.map(f => [f.relativePath, f.content.split('\n')]));
-  correlateSources(sources, sinks, fileContentsMap);
-
-  // 8. Build parsed files list
+  // 7. Build parsed files list
   const parsedFiles = buildParsedFiles(sinks, sources);
+  onProgress?.('analysis_done', `${routes.length} routes, ${sinks.length} sinks, ${sources.length} sources`);
 
   // 9. Run rules
+  onProgress?.('rules', `Running ${rules.length} security rules...`);
   const ruleContext = {
     rootPath: absolutePath,
     files,
@@ -229,12 +247,14 @@ export async function runScan(
     parsedFiles,
   };
 
+  let rulesCompleted = 0;
   const scanStart = performance.now();
   const executionResults: RuleExecutionResult[] = await Promise.all(
     rules.map(async (r): Promise<RuleExecutionResult> => {
       const ruleStart = performance.now();
       try {
-        const findings = await r.run(ruleContext);
+        const findings = await raceTimeout(r.run(ruleContext), ruleTimeoutMs, r.id);
+        onProgress?.('rule_done', `${++rulesCompleted}/${rules.length}`);
         return {
           ruleId: r.id,
           ruleName: r.name,
@@ -245,6 +265,7 @@ export async function runScan(
         };
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
+        onProgress?.('rule_done', `${++rulesCompleted}/${rules.length}`);
         return {
           ruleId: r.id,
           ruleName: r.name,
@@ -258,6 +279,8 @@ export async function runScan(
     })
   );
   const scanDurationMs = Math.round(performance.now() - scanStart);
+  const totalFindings = executionResults.reduce((n, r) => n + r.findings.length, 0);
+  onProgress?.('rules_done', `${totalFindings} finding${totalFindings !== 1 ? 's' : ''} from ${rules.length} rules`);
 
   const engineHealth: EngineHealth = {
     rulesTotal: executionResults.length,

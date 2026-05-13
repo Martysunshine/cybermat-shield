@@ -269,6 +269,49 @@ function generateRulesDocs(rules: RuleMetadata[]): string {
   return lines.join('\n');
 }
 
+// ─── Progress Spinner ─────────────────────────────────────────────────────
+
+class ProgressSpinner {
+  private readonly frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  private frameIdx = 0;
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private readonly startMs = Date.now();
+  private currentMsg = '';
+  private pct = 0;
+
+  start(msg: string, pct = 0): void {
+    if (this.timer) clearInterval(this.timer);
+    this.currentMsg = msg;
+    this.pct = pct;
+    this.render();
+    this.timer = setInterval(() => this.render(), 80);
+  }
+
+  update(msg: string, pct: number): void {
+    this.currentMsg = msg;
+    this.pct = pct;
+  }
+
+  private render(): void {
+    const elapsed = ((Date.now() - this.startMs) / 1000).toFixed(1);
+    const frame = this.frames[this.frameIdx++ % this.frames.length];
+    const pctStr = chalk.cyan(`${this.pct}%`.padStart(4));
+    process.stderr.write(`\r  ${frame} ${this.currentMsg.padEnd(46)} ${pctStr}   [${elapsed}s]`);
+  }
+
+  done(msg: string, pct: number): void {
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    const elapsed = ((Date.now() - this.startMs) / 1000).toFixed(1);
+    const pctStr = chalk.cyan(`${pct}%`.padStart(4));
+    process.stderr.write(`\r  ${chalk.green('✓')} ${msg.padEnd(46)} ${pctStr}   [${elapsed}s]\n`);
+  }
+
+  stop(): void {
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    process.stderr.write('\r' + ' '.repeat(72) + '\r');
+  }
+}
+
 // ─── CLI setup ────────────────────────────────────────────────────────────
 
 const program = new Command();
@@ -551,10 +594,12 @@ program
   .option('--ci', 'Exit code 5 if new findings compared to baseline (implies --baseline)')
   .option('--strict-rules', 'Exit 2 if any rule fails internally during execution')
   .option('--debug', 'Print per-rule timing and detailed internal diagnostics')
+  .option('--max-files <n>', 'Maximum files to scan (default: unlimited)')
+  .option('--rule-timeout <ms>', 'Max milliseconds per rule before it is skipped (default: 30000)')
   .action(async (targetPath: string, opts: {
     json?: boolean; sarif?: boolean; markdown?: boolean;
     outputDir?: string; failOn?: string; baseline?: boolean; ci?: boolean;
-    strictRules?: boolean; debug?: boolean;
+    strictRules?: boolean; debug?: boolean; maxFiles?: string; ruleTimeout?: string;
   }) => {
     printBanner();
 
@@ -564,14 +609,33 @@ program
       process.exit(2);
     }
 
-    console.log(chalk.gray('  Scanning...'));
-    console.log('');
+    const spinner = opts.json ? null : new ProgressSpinner();
+    if (!opts.json) console.log('');
 
     try {
       const report = await runScan(absolutePath, allRules, {
         outputDir: opts.outputDir,
         strictRuleFailures: opts.strictRules,
         debug: opts.debug,
+        maxFiles: opts.maxFiles !== undefined ? parseInt(opts.maxFiles, 10) : undefined,
+        ruleTimeoutMs: opts.ruleTimeout !== undefined ? parseInt(opts.ruleTimeout, 10) : undefined,
+        onProgress: (phase, detail) => {
+          if (!spinner) return;
+          switch (phase) {
+            case 'inventory':      spinner.start('Building file inventory...', 0); break;
+            case 'inventory_done': spinner.done(detail ?? 'File inventory complete', 10); break;
+            case 'analysis':       spinner.start('Analyzing code structure...', 10); break;
+            case 'analysis_done':  spinner.done(detail ?? 'Code analysis complete', 20); break;
+            case 'rules':          spinner.start('Running security rules... [0/?]', 20); break;
+            case 'rule_done': {
+              const [done, total] = (detail ?? '0/1').split('/').map(Number);
+              const pct = 20 + Math.round((done / total) * 80);
+              spinner.update(`Running security rules... [${done}/${total}]`, pct);
+              break;
+            }
+            case 'rules_done':     spinner.done(detail ?? 'Rules complete', 100); break;
+          }
+        },
       });
 
       // Output dir is relative to the scanned path (where JSON/HTML also go)
@@ -594,6 +658,8 @@ program
         return;
       }
 
+      spinner?.stop();
+      console.log('');
       printReport(report, diff);
 
       // Engine health diagnostics warning
@@ -654,6 +720,7 @@ program
       process.exit(0);
 
     } catch (err) {
+      spinner?.stop();
       console.error(chalk.red('  Scan failed:'), err);
       process.exit(2);
     }
